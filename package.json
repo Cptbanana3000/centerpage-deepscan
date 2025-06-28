@@ -1,7 +1,8 @@
 {
   "name": "centerpage-deepscan",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "src/index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -17,8 +18,7 @@
     "dotenv": "^17.0.0",
     "express": "^5.1.0",
     "openai": "^5.8.2",
-    
-    "puppeteer-core": "^24.11.1"
-    
+    "puppeteer-core": "^24.11.1",
+    "tldts": "^7.0.9"
   }
 }
