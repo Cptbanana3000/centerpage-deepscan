@@ -1,13 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
-import DeepScanService from './services/deepScanService.js';
 import { generatePdfFromHtml, generateProfessionalPdfHtml } from './services/pdfGenerator.js';
+import { analysisQueue } from './jobs/queue.js';
 
 // --- SERVER SETUP ---
 const app = express();
 const port = process.env.PORT || 10000;
-const deepScanService = new DeepScanService(process.env.OPENAI_API_KEY);
 
 app.use(express.json({ limit: '10mb' })); // Allow large JSON payloads
 app.use(cors()); // Allow requests from your frontend
@@ -31,14 +30,40 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 app.post('/deep-scan', apiKeyAuth, async (req, res) => {
   try {
     const { brandName, category, competitorUrls } = req.body;
-    const result = await deepScanService.performMultipleDeepScan(competitorUrls, brandName, category);
-    if (result.success) {
-      return res.status(200).json(result);
+
+    if (!brandName || !Array.isArray(competitorUrls) || competitorUrls.length === 0) {
+      return res.status(400).json({ message: 'brandName and competitorUrls are required.' });
     }
-    throw new Error(result.error || 'Deep scan service failed.');
+
+    const job = await analysisQueue.add('deepScan', { brandName, category, competitorUrls });
+    return res.status(202).json({ jobId: job.id });
   } catch (error) {
-    console.error('Deep Scan Endpoint Error:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('Deep Scan Queueing Error:', error);
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+// Polling endpoint to check job status and fetch result
+app.get('/analysis-status/:jobId', apiKeyAuth, async (req, res) => {
+  const { jobId } = req.params;
+  try {
+    const job = await analysisQueue.getJob(jobId);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    const state = await job.getState();
+    const progress = typeof job.progress === 'number' ? job.progress : 0;
+    const response = { state, progress };
+
+    if (state === 'completed') {
+      response.result = job.returnvalue;
+    } else if (state === 'failed') {
+      response.error = job.failedReason;
+    }
+
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error('Status Endpoint Error:', error);
+    return res.status(500).json({ message: error.message });
   }
 });
 

@@ -74,8 +74,8 @@ class DeepScanService {
   async analyzeWebsite(url) {
     // Validate and clean URL
     if (!/^(https?:\/\/)/i.test(url)) {
-        url = 'https://' + url;
-      }
+      url = 'https://' + url;
+    }
     
     // Basic URL validation
     try {
@@ -84,23 +84,37 @@ class DeepScanService {
       throw new Error(`Invalid URL format: ${url}`);
     }
 
-    console.log(`📡 Attempting browser analysis for: ${url}`);
+    console.log(`📡 [Analyzer] Attempting robust browser analysis for: ${url}`);
     
-    // Try Puppeteer first, fall back to simple HTTP if it fails
+    // Puppeteer first, as it's the most reliable for all site types.
     try {
       return await this.analyzWithPuppeteer(url);
     } catch (puppeteerError) {
-      console.warn(`⚠️ Puppeteer failed for ${url}, trying fallback method:`, puppeteerError.message);
+      console.warn(`⚠️ Browser analysis failed for ${url}, trying fast fallback:`, puppeteerError.message);
+      // Fallback to the fast HTTP method if the browser fails.
       return await this.analyzeWithFallback(url);
     }
   }
 
   /**
-   * Analyzes website using Puppeteer (original method)
+   * Analyzes website using Puppeteer (with stealth and retries)
    */
   async analyzWithPuppeteer(url) {
-    console.log(`📡 Launching headless browser to analyze: ${url}`);
+    console.log(`🚀 Launching headless browser to analyze: ${url}`);
     let browser;
+
+    // Dynamically choose puppeteer variant
+    let puppeteerLib;
+    if (process.env.NODE_ENV === 'production') {
+      puppeteerLib = (await import('puppeteer-core')).default;
+    } else {
+      // Use puppeteer-extra with stealth plugin in development for better success rate
+      const puppeteerExtra = (await import('puppeteer-extra')).default;
+      const StealthPlugin = (await import('puppeteer-extra-plugin-stealth')).default;
+      puppeteerExtra.use(StealthPlugin());
+      puppeteerLib = puppeteerExtra;
+    }
+
     try {
       let launchOptions = {
         args: [
@@ -114,7 +128,7 @@ class DeepScanService {
           '--disable-extensions'
         ],
         headless: true,
-        timeout: 30000
+        timeout: 30000 // launch timeout
       };
 
       // Use Vercel-compatible Chromium in production
@@ -123,20 +137,30 @@ class DeepScanService {
         launchOptions.args = [...launchOptions.args, ...chromium.args];
       }
 
-      browser = await puppeteer.launch(launchOptions);
+      browser = await puppeteerLib.launch(launchOptions);
       const page = await browser.newPage();
-      
-      // Set longer timeout and better error handling
-      await page.setDefaultNavigationTimeout(30000);
-      await page.setDefaultTimeout(30000);
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-      
-      try {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      } catch (navigationError) {
-        console.warn(`⚠️ Navigation timeout for ${url}, trying with reduced wait conditions...`);
-        await page.goto(url, { waitUntil: 'load', timeout: 15000 });
+
+      // Abort images and fonts to speed up analysis
+      await page.setRequestInterception(true);
+      page.on('request', req => {
+        const type = req.resourceType();
+        if (type === 'image' || type === 'font') {
+          return req.abort();
+        }
+        req.continue();
+      });
+
+      // Robust navigation with up to 2 attempts
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
+          break; // success
+        } catch (navigationError) {
+          console.warn(`⚠️ Navigation attempt ${attempt + 1} failed for ${url}: ${navigationError.message}`);
+          if (attempt === 1) throw navigationError; // throw on last attempt
+        }
       }
+
       const finalUrl = page.url();
       const htmlContent = await page.content();
       const $ = cheerio.load(htmlContent);
@@ -145,15 +169,23 @@ class DeepScanService {
       const technologies = await this.detectTechnologiesAI(techClues, finalUrl);
       
       const performanceMetrics = await page.evaluate(() => {
-        const paintTimings = performance.getEntriesByType('paint');
-        const fcp = paintTimings.find(entry => entry.name === 'first-contentful-paint')?.startTime;
-        const navTiming = performance.getEntriesByType("navigation")[0];
-        
-        return {
-          firstContentfulPaint: fcp ? `${fcp.toFixed(0)} ms` : 'N/A',
-          domLoadTime: navTiming ? `${(navTiming.domContentLoadedEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
-          pageLoadTime: navTiming ? `${(navTiming.loadEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
-        };
+        try {
+            const paintTimings = performance.getEntriesByType('paint');
+            const fcp = paintTimings.find(entry => entry.name === 'first-contentful-paint')?.startTime;
+            const navTiming = performance.getEntriesByType("navigation")[0];
+            
+            return {
+              firstContentfulPaint: fcp ? `${fcp.toFixed(0)} ms` : 'N/A',
+              domLoadTime: navTiming ? `${(navTiming.domContentLoadedEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
+              pageLoadTime: navTiming ? `${(navTiming.loadEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
+            };
+        } catch (e) {
+            return {
+                firstContentfulPaint: 'N/A',
+                domLoadTime: 'N/A',
+                pageLoadTime: 'N/A',
+            }
+        }
       });
 
       const analyzedData = {
@@ -173,14 +205,15 @@ class DeepScanService {
         metaRobots: $('meta[name="robots"]').attr('content') || null,
         performance: performanceMetrics,
         technologyStack: technologies,
+        analysisMethod: 'PUPPETEER_SUCCESS'
       };
 
-      console.log(`✅ Analysis complete for ${finalUrl}`);
+      console.log(`✅ Puppeteer analysis complete for ${finalUrl}`);
       return analyzedData;
 
     } catch (error) {
-      console.error(`[AnalyzeWebsite] Failed for ${url}:`, error.message);
-      throw new Error(`Failed to analyze ${url}: ${error.message}`);
+      console.error(`[Puppeteer Analysis] Failed for ${url}:`, error.message);
+      throw new Error(`Puppeteer failed to analyze ${url}: ${error.message}`);
     } finally {
       if (browser) await browser.close();
     }
@@ -299,16 +332,33 @@ ${JSON.stringify(analyzedData, null, 2)}
    * @param {string[]} competitorUrls - An array of competitor URLs.
    * @param {string} brandName - The user's brand name.
    * @param {string} category - The industry category for tailored analysis.
+   * @param {function} progressCallback - Callback function to update progress.
    */
-  async performMultipleDeepScan(competitorUrls, brandName, category = 'General') {
+  async performMultipleDeepScan(competitorUrls, brandName, category = 'General', progressCallback = () => {}) {
     console.log(`🚀 Starting multi-competitor deep scan for brand: ${brandName} in category: ${category}`);
     try {
       const uniqueCompetitors = this.deduplicateByDomain(competitorUrls);
       console.log(`🎯 Analyzing ${uniqueCompetitors.length} unique competitors...`);
       const urlsToProcess = uniqueCompetitors.slice(0, 5);
       
-      const analysisPromises = urlsToProcess.map(url => this.analyzeWebsite(url));
-      const settledResults = await Promise.allSettled(analysisPromises);
+      let completedCount = 0;
+      const total = urlsToProcess.length;
+
+      // Wrap each analysis call so we can update progress as they settle
+      const analysisPromises = urlsToProcess.map(async (url) => {
+        try {
+          const data = await this.analyzeWebsite(url);
+          return { status: 'fulfilled', value: data };
+        } catch (err) {
+          return { status: 'rejected', reason: err };
+        } finally {
+          completedCount += 1;
+          const percent = Math.round((completedCount / total) * 100);
+          try { progressCallback(percent); } catch (_) {}
+        }
+      });
+
+      const settledResults = await Promise.all(analysisPromises);
       
       const successfulAnalyses = [];
       const failedAnalyses = [];
@@ -338,6 +388,9 @@ ${JSON.stringify(analyzedData, null, 2)}
       // Pass the category to the comparative report generator
       const comparativeAnalysis = await this.generateComparativeAIReport(successfulAnalyses, brandName, category);
       
+      // ensure we finish at 100%
+      try { progressCallback(100); } catch (_) {}
+      
       return {
         success: true,
         data: {
@@ -349,6 +402,7 @@ ${JSON.stringify(analyzedData, null, 2)}
       };
     } catch (error) {
       console.error('❌ Multi-competitor deep scan failed:', error);
+      try { progressCallback(100); } catch (_) {}
       return { success: false, error: error.message };
     }
   }
@@ -433,51 +487,73 @@ ${JSON.stringify(analyzedData, null, 2)}
   async analyzeWithFallback(url) {
     console.log(`🔄 Using fallback HTTP analysis for: ${url}`);
     
-    try {
-      const axios = (await import('axios')).default;
-      
-      const response = await axios.get(url, {
-        timeout: 15000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        },
-        maxRedirects: 5
-      });
+    const axios = (await import('axios')).default;
+    const zlib = await import('zlib');
+    
+    // Axios with retry (2 attempts)
+    let rawHtmlBuffer;
+    let finalUrl = url;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await axios.get(url, {
+          timeout: 60000,
+          responseType: 'arraybuffer',
+          decompress: false,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept-Encoding': 'gzip, deflate, br'
+          },
+          maxRedirects: 5
+        });
 
-      const $ = cheerio.load(response.data);
-      const finalUrl = response.request?.responseURL || url;
-
-      const analyzedData = {
-        url: finalUrl,
-        title: $('title').text().trim() || 'No title found',
-        metaDescription: $('meta[name="description"]').attr('content')?.trim() || 'No meta description found',
-        h1: $('h1').first().text().trim() || 'No H1 found',
-        h2Count: $('h2').length,
-        h3Count: $('h3').length,
-        wordCount: this.estimateWordCount($('body').text()),
-        internalLinks: this.countLinks($, finalUrl, true),
-        externalLinks: this.countLinks($, finalUrl, false),
-        images: $('img').length,
-        imagesWithAlt: $('img[alt][alt!=""]').length,
-        schemaMarkup: $('script[type="application/ld+json"]').length > 0,
-        canonicalUrl: $('link[rel="canonical"]').attr('href') || null,
-        metaRobots: $('meta[name="robots"]').attr('content') || null,
-        performance: {
-          firstContentfulPaint: 'N/A (Fallback mode)',
-          domLoadTime: 'N/A (Fallback mode)',
-          pageLoadTime: 'N/A (Fallback mode)',
-        },
-        technologyStack: await this.detectTechnologiesFromHTML($),
-        analysisMethod: 'HTTP_FALLBACK'
-      };
-
-      console.log(`✅ Fallback analysis complete for ${finalUrl}`);
-      return analyzedData;
-
-    } catch (error) {
-      console.error(`[Fallback Analysis] Failed for ${url}:`, error.message);
-      throw new Error(`Failed to analyze ${url} with fallback method: ${error.message}`);
+        finalUrl = response.request?.responseURL || url;
+        const encoding = (response.headers['content-encoding'] || '').toLowerCase();
+        rawHtmlBuffer = response.data;
+        if (encoding.includes('br')) rawHtmlBuffer = zlib.brotliDecompressSync(rawHtmlBuffer);
+        else if (encoding.includes('gzip')) rawHtmlBuffer = zlib.gunzipSync(rawHtmlBuffer);
+        else if (encoding.includes('deflate')) rawHtmlBuffer = zlib.inflateSync(rawHtmlBuffer);
+        break; // success
+      } catch (err) {
+        console.warn(`🔄 Axios attempt ${attempt + 1} failed for ${url}: ${err.message}`);
+        if (attempt === 1) {
+            console.error(`[Fallback Analysis] Failed for ${url}:`, err.message);
+            throw new Error(`Failed to analyze ${url} with fallback method: ${err.message}`);
+        };
+      }
     }
+    
+    if (!rawHtmlBuffer) {
+        throw new Error(`Failed to retrieve HTML for ${url} after all attempts.`);
+    }
+
+    const $ = cheerio.load(rawHtmlBuffer.toString());
+
+    const analyzedData = {
+      url: finalUrl,
+      title: $('title').text().trim() || 'No title found',
+      metaDescription: $('meta[name="description"]').attr('content')?.trim() || 'No meta description found',
+      h1: $('h1').first().text().trim() || 'No H1 found',
+      h2Count: $('h2').length,
+      h3Count: $('h3').length,
+      wordCount: this.estimateWordCount($('body').text()),
+      internalLinks: this.countLinks($, finalUrl, true),
+      externalLinks: this.countLinks($, finalUrl, false),
+      images: $('img').length,
+      imagesWithAlt: $('img[alt][alt!=""]').length,
+      schemaMarkup: $('script[type="application/ld+json"]').length > 0,
+      canonicalUrl: $('link[rel="canonical"]').attr('href') || null,
+      metaRobots: $('meta[name="robots"]').attr('content') || null,
+      performance: {
+        firstContentfulPaint: 'N/A (HTTP mode)',
+        domLoadTime: 'N/A (HTTP mode)',
+        pageLoadTime: 'N/A (HTTP mode)',
+      },
+      technologyStack: await this.detectTechnologiesFromHTML($),
+      analysisMethod: 'HTTP_FALLBACK'
+    };
+
+    console.log(`✅ Fallback analysis complete for ${finalUrl}`);
+    return analyzedData;
   }
 
   /**
