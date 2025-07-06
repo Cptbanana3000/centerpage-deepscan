@@ -74,8 +74,8 @@ class DeepScanService {
   async analyzeWebsite(url) {
     // Validate and clean URL
     if (!/^(https?:\/\/)/i.test(url)) {
-      url = 'https://' + url;
-    }
+        url = 'https://' + url;
+      }
     
     // Basic URL validation
     try {
@@ -139,7 +139,7 @@ class DeepScanService {
 
       browser = await puppeteerLib.launch(launchOptions);
       const page = await browser.newPage();
-
+      
       // Abort images and fonts to speed up analysis
       await page.setRequestInterception(true);
       page.on('request', req => {
@@ -152,10 +152,10 @@ class DeepScanService {
 
       // Robust navigation with up to 2 attempts
       for (let attempt = 0; attempt < 2; attempt++) {
-        try {
+      try {
           await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
           break; // success
-        } catch (navigationError) {
+      } catch (navigationError) {
           console.warn(`⚠️ Navigation attempt ${attempt + 1} failed for ${url}: ${navigationError.message}`);
           if (attempt === 1) throw navigationError; // throw on last attempt
         }
@@ -170,15 +170,15 @@ class DeepScanService {
       
       const performanceMetrics = await page.evaluate(() => {
         try {
-            const paintTimings = performance.getEntriesByType('paint');
-            const fcp = paintTimings.find(entry => entry.name === 'first-contentful-paint')?.startTime;
-            const navTiming = performance.getEntriesByType("navigation")[0];
-            
-            return {
-              firstContentfulPaint: fcp ? `${fcp.toFixed(0)} ms` : 'N/A',
-              domLoadTime: navTiming ? `${(navTiming.domContentLoadedEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
-              pageLoadTime: navTiming ? `${(navTiming.loadEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
-            };
+        const paintTimings = performance.getEntriesByType('paint');
+        const fcp = paintTimings.find(entry => entry.name === 'first-contentful-paint')?.startTime;
+        const navTiming = performance.getEntriesByType("navigation")[0];
+        
+        return {
+          firstContentfulPaint: fcp ? `${fcp.toFixed(0)} ms` : 'N/A',
+          domLoadTime: navTiming ? `${(navTiming.domContentLoadedEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
+          pageLoadTime: navTiming ? `${(navTiming.loadEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
+        };
         } catch (e) {
             return {
                 firstContentfulPaint: 'N/A',
@@ -487,24 +487,24 @@ ${JSON.stringify(analyzedData, null, 2)}
   async analyzeWithFallback(url) {
     console.log(`🔄 Using fallback HTTP analysis for: ${url}`);
     
-    const axios = (await import('axios')).default;
+      const axios = (await import('axios')).default;
     const zlib = await import('zlib');
-    
+      
     // Axios with retry (2 attempts)
     let rawHtmlBuffer;
     let finalUrl = url;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const response = await axios.get(url, {
+      const response = await axios.get(url, {
           timeout: 60000,
           responseType: 'arraybuffer',
           decompress: false,
-          headers: {
+        headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'Accept-Encoding': 'gzip, deflate, br'
-          },
-          maxRedirects: 5
-        });
+        },
+        maxRedirects: 5
+      });
 
         finalUrl = response.request?.responseURL || url;
         const encoding = (response.headers['content-encoding'] || '').toLowerCase();
@@ -528,32 +528,32 @@ ${JSON.stringify(analyzedData, null, 2)}
 
     const $ = cheerio.load(rawHtmlBuffer.toString());
 
-    const analyzedData = {
-      url: finalUrl,
-      title: $('title').text().trim() || 'No title found',
-      metaDescription: $('meta[name="description"]').attr('content')?.trim() || 'No meta description found',
-      h1: $('h1').first().text().trim() || 'No H1 found',
-      h2Count: $('h2').length,
-      h3Count: $('h3').length,
-      wordCount: this.estimateWordCount($('body').text()),
-      internalLinks: this.countLinks($, finalUrl, true),
-      externalLinks: this.countLinks($, finalUrl, false),
-      images: $('img').length,
-      imagesWithAlt: $('img[alt][alt!=""]').length,
-      schemaMarkup: $('script[type="application/ld+json"]').length > 0,
-      canonicalUrl: $('link[rel="canonical"]').attr('href') || null,
-      metaRobots: $('meta[name="robots"]').attr('content') || null,
-      performance: {
+      const analyzedData = {
+        url: finalUrl,
+        title: $('title').text().trim() || 'No title found',
+        metaDescription: $('meta[name="description"]').attr('content')?.trim() || 'No meta description found',
+        h1: $('h1').first().text().trim() || 'No H1 found',
+        h2Count: $('h2').length,
+        h3Count: $('h3').length,
+        wordCount: this.estimateWordCount($('body').text()),
+        internalLinks: this.countLinks($, finalUrl, true),
+        externalLinks: this.countLinks($, finalUrl, false),
+        images: $('img').length,
+        imagesWithAlt: $('img[alt][alt!=""]').length,
+        schemaMarkup: $('script[type="application/ld+json"]').length > 0,
+        canonicalUrl: $('link[rel="canonical"]').attr('href') || null,
+        metaRobots: $('meta[name="robots"]').attr('content') || null,
+        performance: {
         firstContentfulPaint: 'N/A (HTTP mode)',
         domLoadTime: 'N/A (HTTP mode)',
         pageLoadTime: 'N/A (HTTP mode)',
-      },
-      technologyStack: await this.detectTechnologiesFromHTML($),
-      analysisMethod: 'HTTP_FALLBACK'
-    };
+        },
+        technologyStack: await this.detectTechnologiesFromHTML($),
+        analysisMethod: 'HTTP_FALLBACK'
+      };
 
-    console.log(`✅ Fallback analysis complete for ${finalUrl}`);
-    return analyzedData;
+      console.log(`✅ Fallback analysis complete for ${finalUrl}`);
+      return analyzedData;
   }
 
   /**
