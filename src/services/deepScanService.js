@@ -376,7 +376,7 @@ class DeepScanService {
   async detectTechnologiesAI(techClues, url) {
     const prompt = `Analyze these technical clues from ${url} to identify the web technologies used. Focus on the frontend framework, backend language/framework, CMS, and major analytics/marketing tools.
       Clues: ${JSON.stringify(techClues, null, 2).substring(0, 3000)}
-      Return a JSON array of strings. e.g., ["React", "Node.js", "WordPress", "Google Analytics"]`;
+      Return a JSON object with a single key "technologies" which contains an array of strings. e.g., {"technologies": ["React", "Node.js", "WordPress", "Google Analytics"]}`;
     try {
         const completion = await this.openai.chat.completions.create({
             model: "gpt-4.1-mini",
@@ -384,8 +384,10 @@ class DeepScanService {
             response_format: { type: "json_object" },
         });
         const result = JSON.parse(completion.choices[0].message.content);
+        // Ensure we handle both { "technologies": [...] } and a direct array [] for robustness
         return Array.isArray(result) ? result : result.technologies || ['AI Detection Failed'];
     } catch (e) {
+        console.error(`[Tech Detect] AI parsing failed: ${e.message}`);
         return ['AI Detection Failed'];
     }
   }
