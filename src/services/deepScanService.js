@@ -374,9 +374,25 @@ class DeepScanService {
   }
 
   async detectTechnologiesAI(techClues, url) {
-    const prompt = `Analyze these technical clues from ${url} to identify the web technologies used. Focus on the frontend framework, backend language/framework, CMS, and major analytics/marketing tools.
-      Clues: ${JSON.stringify(techClues, null, 2).substring(0, 3000)}
-      Return a JSON object with a single key "technologies" which contains an array of strings. e.g., {"technologies": ["React", "Node.js", "WordPress", "Google Analytics"]}`;
+    const prompt = `You are a world-class web technology detective. Your mission is to exhaustively identify every significant technology used on a website based on the provided clues. Do not stop at the obvious; look for subtle hints.
+
+**Clues from ${url}:**
+\`\`\`json
+${JSON.stringify(techClues, null, 2).substring(0, 8000)}
+\`\`\`
+
+**Instructions:**
+1.  **Be Comprehensive:** Identify as many technologies as you can.
+2.  **Analyze Deeply:**
+    *   **Scripts & Links:** Check URLs for hints (e.g., 'wp-content' implies WordPress, 'gtm.js' implies Google Tag Manager).
+    *   **HTML & Body:** Look for framework-specific attributes (e.g., \`data-reactroot\`, \`ng-app\`).
+    *   **Meta Tags:** The \`generator\` meta tag is a strong indicator of a CMS.
+3.  **Categorize Your Findings (if possible):** Mentally group technologies into Frontend, UI, Backend, CMS, Analytics, Advertising, Hosting/CDN, etc., to ensure broad coverage.
+
+**Output Format:**
+Return a JSON object with a single key "technologies", which is an array of strings. Be specific. For example, if you see evidence for Next.js, list both "Next.js" and "React".
+
+Example: \`{"technologies": ["Next.js", "React", "Node.js", "Vercel", "Stripe", "Google Analytics", "Facebook Pixel"]}\``;
     try {
         const completion = await this.openai.chat.completions.create({
             model: "gpt-4.1-mini",
