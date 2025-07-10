@@ -23,7 +23,7 @@ worker.on('completed', async (job, result) => {
     const docRef = db.collection('deepScans').doc(job.id);
     const dataToSave = {
       ...job.data,
-      analysisResult: result,
+      ...result,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
     await docRef.set(dataToSave);
