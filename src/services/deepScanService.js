@@ -8,15 +8,7 @@ import * as cheerio from 'cheerio';
 import puppeteer from 'puppeteer-core';
 import { getDomain } from 'tldts';
 
-// Import Vercel-compatible Chromium
-let chromium;
-if (process.env.NODE_ENV === 'production') {
-  try {
-    chromium = (await import('@sparticuz/chromium')).default;
-  } catch (error) {
-    console.warn('Failed to import @sparticuz/chromium:', error);
-  }
-}
+// We no longer need to dynamically import chromium here as it's handled inside the method.
 
 class DeepScanService {
   /**
@@ -207,10 +199,16 @@ class DeepScanService {
   async analyzWithPuppeteer(url) {
     console.log(`🚀 Launching headless browser to analyze: ${url}`);
     let browser;
+    let chromium;
 
     let puppeteerLib;
     if (process.env.NODE_ENV === 'production') {
       puppeteerLib = (await import('puppeteer-core')).default;
+      try {
+        chromium = (await import('@sparticuz/chromium')).default;
+      } catch (e) {
+        console.warn('Could not import @sparticuz/chromium', e);
+      }
     } else {
       const puppeteerExtra = (await import('puppeteer-extra')).default;
       const StealthPlugin = (await import('puppeteer-extra-plugin-stealth')).default;
@@ -493,4 +491,13 @@ Example: \`{"technologies": ["Next.js", "React", "Node.js", "Vercel", "Stripe", 
   }
 }
 
-export default DeepScanService;
+// Create a single, shared instance of the service
+const deepScanService = new DeepScanService();
+
+// Export the instance and the main function for the worker
+export { deepScanService, performMultipleDeepScan };
+
+// Wrapper function to be used by the worker, ensuring `this` context is correct.
+export async function performMultipleDeepScan(competitorUrls, brandName, category) {
+  return await deepScanService.performMultipleDeepScan(competitorUrls, brandName, category);
+}
