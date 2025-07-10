@@ -230,7 +230,7 @@ class DeepScanService {
 
       browser = await puppeteerLib.launch(launchOptions);
       const page = await browser.newPage();
-
+      
       await page.setRequestInterception(true);
       page.on('request', req => {
         const type = req.resourceType();
@@ -242,7 +242,7 @@ class DeepScanService {
         try {
             await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
             break;
-        } catch (navigationError) {
+      } catch (navigationError) {
             console.warn(`⚠️ Navigation attempt ${attempt + 1} failed for ${url}: ${navigationError.message}`);
             if (attempt === 1) throw navigationError;
         }
@@ -261,14 +261,14 @@ class DeepScanService {
       
       const performanceMetrics = await page.evaluate(() => {
         try {
-          const paintTimings = performance.getEntriesByType('paint');
-          const fcp = paintTimings.find(entry => entry.name === 'first-contentful-paint')?.startTime;
-          const navTiming = performance.getEntriesByType("navigation")[0];
-          return {
-            firstContentfulPaint: fcp ? `${fcp.toFixed(0)} ms` : 'N/A',
-            domLoadTime: navTiming ? `${(navTiming.domContentLoadedEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
-            pageLoadTime: navTiming ? `${(navTiming.loadEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
-          };
+        const paintTimings = performance.getEntriesByType('paint');
+        const fcp = paintTimings.find(entry => entry.name === 'first-contentful-paint')?.startTime;
+        const navTiming = performance.getEntriesByType("navigation")[0];
+        return {
+          firstContentfulPaint: fcp ? `${fcp.toFixed(0)} ms` : 'N/A',
+          domLoadTime: navTiming ? `${(navTiming.domContentLoadedEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
+          pageLoadTime: navTiming ? `${(navTiming.loadEventEnd - navTiming.startTime).toFixed(0)} ms` : 'N/A',
+        };
         } catch (e) {
             return { firstContentfulPaint: 'N/A', domLoadTime: 'N/A', pageLoadTime: 'N/A' };
         }
@@ -382,9 +382,9 @@ class DeepScanService {
     const prompt = `You are a world-class web technology detective. Your mission is to exhaustively identify every significant technology used on a website based on the provided clues. Do not stop at the obvious; look for subtle hints.
 
 **Clues from ${url}:**
-\`\`\`json
+      \`\`\`json
 ${JSON.stringify(techClues, null, 2).substring(0, 8000)}
-\`\`\`
+      \`\`\`
 
 **Instructions:**
 1.  **Be Comprehensive:** Identify as many technologies as you can.

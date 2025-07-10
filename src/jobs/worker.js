@@ -7,7 +7,7 @@ import { connection } from './queue.js';
 const worker = new Worker('analysisQueue', async job => {
   const { brandName, category, competitorUrls } = job.data;
   console.log(`Processing job ${job.id} for brand: ${brandName}`);
-  const analysis = await performMultipleDeepScan(brandName, category, competitorUrls);
+  const analysis = await performMultipleDeepScan(competitorUrls, brandName, category);
   return analysis;
 }, { 
   connection,
