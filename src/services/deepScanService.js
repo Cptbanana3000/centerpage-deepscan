@@ -494,10 +494,7 @@ Example: \`{"technologies": ["Next.js", "React", "Node.js", "Vercel", "Stripe", 
 // Create a single, shared instance of the service
 const deepScanService = new DeepScanService();
 
-// Export the instance and the main function for the worker
-export { deepScanService, performMultipleDeepScan };
-
-// Wrapper function to be used by the worker, ensuring `this` context is correct.
+// Export the main function for the worker
 export async function performMultipleDeepScan(competitorUrls, brandName, category) {
   return await deepScanService.performMultipleDeepScan(competitorUrls, brandName, category);
 }
