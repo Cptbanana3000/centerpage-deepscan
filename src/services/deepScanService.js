@@ -132,12 +132,19 @@ class DeepScanService {
       // Step 2: Run the specialist agents for each successful analysis
       const agentReportPromises = successfulAnalyses.map(async (data) => {
         try {
-          const [techReport, contentReport, visualReport] = await Promise.all([
+          console.log(`[Agent Pipeline] Running Technical and Content agents for ${data.url}...`);
+          const [techReport, contentReport] = await Promise.all([
             this.runTechnicalAnalysisAgent(data),
             this.runContentSeoAgent(data),
-            data.screenshot ? this.runVisualUxAgent(data.screenshot) : Promise.resolve({ strengths: [], weaknesses: ["Screenshot not available"] })
           ]);
           
+          console.log(`[Agent Pipeline] Running Visual agent for ${data.url}...`);
+          const visualReport = data.screenshot 
+            ? await this.runVisualUxAgent(data.screenshot) 
+            : { strengths: [], weaknesses: ["Screenshot not available"] };
+          
+          console.log(`[Agent Pipeline] All agents finished for ${data.url}.`);
+
           return {
             url: data.url,
             raw_data_summary: { wordCount: data.wordCount, performance: data.performance, techStack: data.technologyStack },

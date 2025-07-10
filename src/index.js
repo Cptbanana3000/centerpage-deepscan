@@ -3,6 +3,7 @@ import cors from 'cors';
 import 'dotenv/config';
 import { generatePdfFromHtml, generateProfessionalPdfHtml } from './services/pdfGenerator.js';
 import { analysisQueue } from './jobs/queue.js';
+import db from './services/firestoreService.js';
 
 // --- SERVER SETUP ---
 const app = express();
@@ -55,7 +56,12 @@ app.get('/analysis-status/:jobId', apiKeyAuth, async (req, res) => {
     const response = { state, progress };
 
     if (state === 'completed') {
-      response.result = job.returnvalue;
+      const docRef = db.collection('deepScans').doc(jobId);
+      const doc = await docRef.get();
+      if (!doc.exists) {
+        return res.status(404).json({ message: 'Result not found in database.' });
+      }
+      response.result = doc.data();
     } else if (state === 'failed') {
       response.error = job.failedReason;
     }
