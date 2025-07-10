@@ -28,7 +28,7 @@ const apiKeyAuth = (req, res, next) => {
 app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
 // Deep Scan Endpoint: Receives a request and performs the web scraping.
-app.post('/deep-scan', apiKeyAuth, async (req, res) => {
+app.post('/api/deep-scan', apiKeyAuth, async (req, res) => {
   try {
     const { brandName, category, competitorUrls } = req.body;
 
@@ -45,7 +45,7 @@ app.post('/deep-scan', apiKeyAuth, async (req, res) => {
 });
 
 // Polling endpoint to check job status and fetch result
-app.get('/analysis-status/:jobId', apiKeyAuth, async (req, res) => {
+app.get('/api/analysis-status/:jobId', apiKeyAuth, async (req, res) => {
   const { jobId } = req.params;
   try {
     const job = await analysisQueue.getJob(jobId);
@@ -74,7 +74,7 @@ app.get('/analysis-status/:jobId', apiKeyAuth, async (req, res) => {
 });
 
 // PDF Export Endpoint: Receives report data and generates a PDF file.
-app.post('/export-pdf', apiKeyAuth, async (req, res) => {
+app.post('/api/export-pdf', apiKeyAuth, async (req, res) => {
   try {
     const { analysisData, brandName, category } = req.body;
     const html = generateProfessionalPdfHtml(analysisData, brandName, category);
