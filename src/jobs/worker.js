@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Worker } from 'bullmq';
 import { performMultipleDeepScan } from '../services/deepScanService.js';
 import db from '../services/firestoreService.js';
@@ -12,7 +13,7 @@ const worker = new Worker('analysisQueue', async job => {
   return analysis;
 }, { 
   connection,
-  concurrency: 1,
+  concurrency: 2,
   limiter: {
     max: 5,
     duration: 60000,
