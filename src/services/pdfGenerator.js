@@ -738,21 +738,66 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category) {
                                   <div class="competitor-analysis">
                                       <h5>AI Specialist Analysis</h5>
                                       ${competitor.specialist_reports.technical ? `
-                                      <div style="margin-bottom: 12px;">
+                                      <div style="margin-bottom: 16px;">
                                           <strong>Technical Analysis:</strong>
-                                          <p style="font-size: 12px; margin: 4px 0;">${competitor.specialist_reports.technical}</p>
+                                          ${competitor.specialist_reports.technical.strengths && competitor.specialist_reports.technical.strengths.length > 0 ? `
+                                          <div style="margin-top: 8px;">
+                                              <span style="font-size: 11px; font-weight: 600; color: #059669;">✓ Strengths:</span>
+                                              <ul style="margin: 4px 0; padding-left: 16px;">
+                                                  ${competitor.specialist_reports.technical.strengths.map(strength => `<li style="font-size: 11px; color: #4b5563;">${strength}</li>`).join('')}
+                                              </ul>
+                                          </div>
+                                          ` : ''}
+                                          ${competitor.specialist_reports.technical.weaknesses && competitor.specialist_reports.technical.weaknesses.length > 0 ? `
+                                          <div style="margin-top: 8px;">
+                                              <span style="font-size: 11px; font-weight: 600; color: #dc2626;">⚠ Weaknesses:</span>
+                                              <ul style="margin: 4px 0; padding-left: 16px;">
+                                                  ${competitor.specialist_reports.technical.weaknesses.map(weakness => `<li style="font-size: 11px; color: #4b5563;">${weakness}</li>`).join('')}
+                                              </ul>
+                                          </div>
+                                          ` : ''}
                                       </div>
                                       ` : ''}
                                       ${competitor.specialist_reports.content ? `
-                                      <div style="margin-bottom: 12px;">
+                                      <div style="margin-bottom: 16px;">
                                           <strong>Content & SEO Analysis:</strong>
-                                          <p style="font-size: 12px; margin: 4px 0;">${competitor.specialist_reports.content}</p>
+                                          ${competitor.specialist_reports.content.strengths && competitor.specialist_reports.content.strengths.length > 0 ? `
+                                          <div style="margin-top: 8px;">
+                                              <span style="font-size: 11px; font-weight: 600; color: #059669;">✓ Strengths:</span>
+                                              <ul style="margin: 4px 0; padding-left: 16px;">
+                                                  ${competitor.specialist_reports.content.strengths.map(strength => `<li style="font-size: 11px; color: #4b5563;">${strength}</li>`).join('')}
+                                              </ul>
+                                          </div>
+                                          ` : ''}
+                                          ${competitor.specialist_reports.content.weaknesses && competitor.specialist_reports.content.weaknesses.length > 0 ? `
+                                          <div style="margin-top: 8px;">
+                                              <span style="font-size: 11px; font-weight: 600; color: #dc2626;">⚠ Weaknesses:</span>
+                                              <ul style="margin: 4px 0; padding-left: 16px;">
+                                                  ${competitor.specialist_reports.content.weaknesses.map(weakness => `<li style="font-size: 11px; color: #4b5563;">${weakness}</li>`).join('')}
+                                              </ul>
+                                          </div>
+                                          ` : ''}
                                       </div>
                                       ` : ''}
                                       ${competitor.specialist_reports.visual_ux ? `
-                                      <div style="margin-bottom: 12px;">
+                                      <div style="margin-bottom: 16px;">
                                           <strong>Visual & UX Analysis:</strong>
-                                          <p style="font-size: 12px; margin: 4px 0;">${competitor.specialist_reports.visual_ux}</p>
+                                          ${competitor.specialist_reports.visual_ux.strengths && competitor.specialist_reports.visual_ux.strengths.length > 0 ? `
+                                          <div style="margin-top: 8px;">
+                                              <span style="font-size: 11px; font-weight: 600; color: #059669;">✓ Strengths:</span>
+                                              <ul style="margin: 4px 0; padding-left: 16px;">
+                                                  ${competitor.specialist_reports.visual_ux.strengths.map(strength => `<li style="font-size: 11px; color: #4b5563;">${strength}</li>`).join('')}
+                                              </ul>
+                                          </div>
+                                          ` : ''}
+                                          ${competitor.specialist_reports.visual_ux.weaknesses && competitor.specialist_reports.visual_ux.weaknesses.length > 0 ? `
+                                          <div style="margin-top: 8px;">
+                                              <span style="font-size: 11px; font-weight: 600; color: #dc2626;">⚠ Weaknesses:</span>
+                                              <ul style="margin: 4px 0; padding-left: 16px;">
+                                                  ${competitor.specialist_reports.visual_ux.weaknesses.map(weakness => `<li style="font-size: 11px; color: #4b5563;">${weakness}</li>`).join('')}
+                                              </ul>
+                                          </div>
+                                          ` : ''}
                                       </div>
                                       ` : ''}
                                   </div>
