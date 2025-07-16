@@ -13,9 +13,9 @@ const worker = new Worker('analysisQueue', async job => {
   return analysis;
 }, { 
   connection,
-  concurrency: 2,
+  concurrency: 4,
   limiter: {
-    max: 5,
+    max: 10,
     duration: 60000,
   },
 });
