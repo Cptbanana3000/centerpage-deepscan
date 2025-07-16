@@ -31,6 +31,16 @@ export async function generatePdfFromHtml(html) {
 }
 
 export function generateProfessionalPdfHtml(analysisData, brandName, category) {
+    // Debug: Log the data structure to help identify issues
+    console.log('🔍 PDF Generator - Analysis Data Structure:', {
+        hasDeepScanData: !!analysisData.deepScanData,
+        hasDetailedAnalysis: !!analysisData.detailedAnalysis,
+        hasData: !!analysisData.data,
+        deepScanKeys: analysisData.deepScanData ? Object.keys(analysisData.deepScanData) : [],
+        dataKeys: analysisData.data ? Object.keys(analysisData.data) : [],
+        analysisDataKeys: Object.keys(analysisData)
+    });
+    
     const currentDate = new Date().toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'long', 
@@ -686,9 +696,23 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category) {
   
           <!-- Deep Scan Analysis (Premium) -->
           ${(() => {
-              const deepScanData = analysisData.deepScanData || analysisData.detailedAnalysis?.deepScanData;
+              // Look for deep scan data in multiple possible locations
+              const deepScanData = analysisData.deepScanData || 
+                                  analysisData.detailedAnalysis?.deepScanData || 
+                                  analysisData.data || 
+                                  analysisData;
+              
+              // Debug: Log deep scan data detection
+              console.log('🔍 PDF Generator - Deep Scan Data Detection:', {
+                  foundDeepScanData: !!deepScanData,
+                  hasCompetitorsAnalyzed: !!(deepScanData && deepScanData.competitorsAnalyzed),
+                  hasAnalysis: !!(deepScanData && deepScanData.analysis),
+                  hasDetailedAgentReports: !!(deepScanData && deepScanData.detailedAgentReports),
+                  deepScanDataKeys: deepScanData ? Object.keys(deepScanData) : []
+              });
+              
               // Check if deepScanData exists and has the right structure
-              if (deepScanData && (deepScanData.competitorsAnalyzed || deepScanData.comparativeAnalysis || deepScanData.competitors)) {
+              if (deepScanData && (deepScanData.competitorsAnalyzed || deepScanData.analysis || deepScanData.detailedAgentReports)) {
                   return `
                   <div class="page-break"></div>
                   <div class="deep-scan-section">
@@ -698,40 +722,37 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category) {
                           <p class="deep-scan-subtitle">Advanced AI-powered competitive analysis with live-scraped data</p>
       </div>
   
-                      ${(deepScanData.competitorsAnalyzed || deepScanData.competitors) && (deepScanData.competitorsAnalyzed || deepScanData.competitors).length > 0 ? `
+                      ${deepScanData.detailedAgentReports && deepScanData.detailedAgentReports.length > 0 ? `
                       <div class="deep-competitors-section">
                           <h3 class="section-title">Detailed Competitor Analysis</h3>
-                          ${(deepScanData.competitorsAnalyzed || deepScanData.competitors).map(competitor => `
+                          ${deepScanData.detailedAgentReports.map(competitor => `
                               <div class="deep-competitor-card">
                                   <div class="competitor-header">
-                                      <h4 class="competitor-name">${competitor.name || competitor.url || 'Unknown Competitor'}</h4>
+                                      <h4 class="competitor-name">${competitor.url || 'Unknown Competitor'}</h4>
                                       <div class="competitor-metrics">
-                                          ${competitor.relevanceScore ? `<span class="metric-badge">Relevance: ${competitor.relevanceScore}</span>` : ''}
-                                          ${competitor.threatLevel ? `<span class="metric-badge threat-${competitor.threatLevel}">${competitor.threatLevel}</span>` : ''}
+                                          ${competitor.raw_data_summary ? `<span class="metric-badge">Word Count: ${competitor.raw_data_summary.wordCount || 'N/A'}</span>` : ''}
+                                          ${competitor.specialist_reports ? `<span class="metric-badge">AI Analyzed</span>` : ''}
                                       </div>
                                   </div>
-                                  ${competitor.analysis ? `
+                                  ${competitor.specialist_reports ? `
                                   <div class="competitor-analysis">
-                                      <h5>Strategic Analysis</h5>
-                                      <p>${competitor.analysis}</p>
-                                  </div>
-                                  ` : ''}
-                                  ${competitor.strengths || competitor.weaknesses ? `
-                                  <div class="competitor-insights">
-                                      ${competitor.strengths ? `
-                                      <div class="insights-column">
-                                          <h6>Key Strengths</h6>
-                                          <ul>
-                                              ${competitor.strengths.map(strength => `<li>${strength}</li>`).join('')}
-                                          </ul>
+                                      <h5>AI Specialist Analysis</h5>
+                                      ${competitor.specialist_reports.technical ? `
+                                      <div style="margin-bottom: 12px;">
+                                          <strong>Technical Analysis:</strong>
+                                          <p style="font-size: 12px; margin: 4px 0;">${competitor.specialist_reports.technical}</p>
                                       </div>
                                       ` : ''}
-                                      ${competitor.weaknesses ? `
-                                      <div class="insights-column">
-                                          <h6>Potential Gaps</h6>
-                                          <ul>
-                                              ${competitor.weaknesses.map(weakness => `<li>${weakness}</li>`).join('')}
-                                          </ul>
+                                      ${competitor.specialist_reports.content ? `
+                                      <div style="margin-bottom: 12px;">
+                                          <strong>Content & SEO Analysis:</strong>
+                                          <p style="font-size: 12px; margin: 4px 0;">${competitor.specialist_reports.content}</p>
+                                      </div>
+                                      ` : ''}
+                                      ${competitor.specialist_reports.visual_ux ? `
+                                      <div style="margin-bottom: 12px;">
+                                          <strong>Visual & UX Analysis:</strong>
+                                          <p style="font-size: 12px; margin: 4px 0;">${competitor.specialist_reports.visual_ux}</p>
                                       </div>
                                       ` : ''}
                                   </div>
@@ -741,32 +762,40 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category) {
                       </div>
                       ` : ''}
   
-                      ${deepScanData.comparativeAnalysis ? `
+                      ${deepScanData.analysis ? `
                       <div class="comparative-analysis-section">
                           <h3 class="section-title">AI Strategic Analysis</h3>
                           <div class="analysis-content">
-                              ${deepScanData.comparativeAnalysis.split('\n').map(paragraph => 
+                              ${deepScanData.analysis.split('\n').map(paragraph => 
                                   paragraph.trim() ? `<p>${paragraph.trim()}</p>` : ''
                               ).join('')}
                           </div>
                       </div>
                       ` : ''}
   
-                      ${deepScanData.marketInsights ? `
+                      ${deepScanData.competitorsAnalyzed && deepScanData.competitorsAnalyzed.length > 0 ? `
                       <div class="market-insights-section">
-                          <h3 class="section-title">Market Intelligence</h3>
+                          <h3 class="section-title">Competitors Analyzed</h3>
                           <div class="insights-grid">
-                              ${Object.entries(deepScanData.marketInsights).map(([key, value]) => `
+                              ${deepScanData.competitorsAnalyzed.map(competitor => `
                                   <div class="insight-item">
-                                      <h6>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</h6>
-                                      <p>${value}</p>
-              </div>
-          `).join('')}
-      </div>
+                                      <h6>${competitor.url || 'Unknown URL'}</h6>
+                                      <p>${competitor.title || 'No title available'}</p>
+                                  </div>
+                              `).join('')}
+                          </div>
                       </div>
                       ` : ''}
                   </div>
                   `;
+              }
+              // Debug: If no deep scan data found, log it
+              if (!deepScanData || (!deepScanData.competitorsAnalyzed && !deepScanData.analysis && !deepScanData.detailedAgentReports)) {
+                  console.log('⚠️ PDF Generator - No deep scan data found in analysisData:', {
+                      analysisDataKeys: Object.keys(analysisData),
+                      deepScanDataFound: !!deepScanData,
+                      deepScanDataKeys: deepScanData ? Object.keys(deepScanData) : []
+                  });
               }
               return '';
           })()}
