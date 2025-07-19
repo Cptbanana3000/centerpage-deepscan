@@ -90,8 +90,13 @@ app.get(['/analysis-status/:jobId', '/api/analysis-status/:jobId'], apiKeyAuth, 
         console.log(`❌ Job ${jobId} completed but no Firestore document found`);
         return res.status(404).json({ message: 'Result not found in database.' });
       }
+      const firestoreData = doc.data();
       console.log(`✅ Job ${jobId} result found in Firestore`);
-      response.result = doc.data();
+      console.log(`📊 Firestore data keys:`, Object.keys(firestoreData));
+      console.log(`🔍 Has detailedAgentReports:`, !!firestoreData.detailedAgentReports);
+      console.log(`🔍 Has analysis:`, !!firestoreData.analysis);
+      console.log(`🔍 Has competitorsAnalyzed:`, !!firestoreData.competitorsAnalyzed);
+      response.result = firestoreData;
     } else if (state === 'failed') {
       response.error = job.failedReason;
     }
