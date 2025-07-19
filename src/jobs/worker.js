@@ -14,10 +14,8 @@ const worker = new Worker('analysisQueue', async job => {
 }, { 
   connection,
   concurrency: 4,
-  limiter: {
-    max: 10,
-    duration: 60000,
-  },
+  // Removed rate limiter to allow multiple concurrent scans
+  // If you need rate limiting, implement it at the API level per user
 });
 
 worker.on('completed', async (job, result) => {

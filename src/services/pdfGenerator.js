@@ -33,38 +33,38 @@ export async function generatePdfFromHtml(html) {
 }
 
 export function generateProfessionalPdfHtml(analysisData, brandName, category) {
-  const currentDate = new Date().toLocaleDateString('en-US', { 
+    const currentDate = new Date().toLocaleDateString('en-US', { 
     year: 'numeric', month: 'long', day: 'numeric' 
-  });
-
+    });
+  
   // Helper Functions
-  const getScoreColor = (score) => {
+    const getScoreColor = (score) => {
     if (score >= 80) return '#059669';
     if (score >= 60) return '#d97706';
     return '#dc2626';
-  };
-
-  const getScoreLabel = (score) => {
-    if (score >= 80) return 'Excellent';
-    if (score >= 60) return 'Good';
-    return 'Needs Attention';
-  };
-
+    };
+  
+    const getScoreLabel = (score) => {
+      if (score >= 80) return 'Excellent';
+      if (score >= 60) return 'Good';
+      return 'Needs Attention';
+    };
+  
   // Component Generators
   const generateHeader = () => `
-    <div class="header">
-      <div class="logo">CenterPage</div>
-      <h1>Brand Analysis Report</h1>
-      <div class="brand-info">${brandName || 'Unknown Brand'}</div>
-      <div class="brand-info">${category || 'General'} Industry</div>
-      <div class="date-info">Generated on ${currentDate}</div>
-    </div>
+      <div class="header">
+              <div class="logo">CenterPage</div>
+          <h1>Brand Analysis Report</h1>
+              <div class="brand-info">${brandName || 'Unknown Brand'}</div>
+              <div class="brand-info">${category || 'General'} Industry</div>
+              <div class="date-info">Generated on ${currentDate}</div>
+          </div>
   `;
-
+  
   const generateExecutiveSummary = () => `
-    <div class="executive-summary">
-      <h2>Executive Summary</h2>
-      <div class="summary-content">
+          <div class="executive-summary">
+              <h2>Executive Summary</h2>
+              <div class="summary-content">
         This comprehensive brand analysis evaluates "<strong>${brandName || 'your brand'}</strong>" 
         for market viability in the ${category || 'business'} industry. Our analysis examines domain 
         availability, competitive landscape, and market positioning to provide data-driven insights 
@@ -72,92 +72,92 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category) {
       </div>
     </div>
   `;
-
+  
   const generateScoreSection = () => `
-    <div class="score-section">
+      <div class="score-section">
       <h2>Overall Brand Viability Score</h2>
-      <div class="score-container">
+              <div class="score-container">
         <div class="score-circle" style="border-top-color: ${getScoreColor(analysisData.overallScore || 0)}">
           <div class="score-number" style="color: ${getScoreColor(analysisData.overallScore || 0)}">
             ${Math.round(analysisData.overallScore || 0)}
           </div>
-        </div>
-      </div>
+                  </div>
+              </div>
       <div class="score-description">
         ${getScoreLabel(analysisData.overallScore || 0)} - ${Math.round(analysisData.overallScore || 0)}/100
       </div>
     </div>
   `;
-
+  
   const generateMetrics = () => `
-    <div class="metrics-section">
-      <div class="metrics-title">Key Performance Indicators</div>
-      <div class="metrics-grid">
-        <div class="metric-card">
+          <div class="metrics-section">
+              <div class="metrics-title">Key Performance Indicators</div>
+              <div class="metrics-grid">
+                  <div class="metric-card">
           <div class="metric-value" style="color: ${getScoreColor(analysisData.scores?.domainStrength || 0)}">
             ${Math.round(analysisData.scores?.domainStrength || 0)}
           </div>
-          <div class="metric-title">Domain Strength</div>
-        </div>
-        <div class="metric-card">
+              <div class="metric-title">Domain Strength</div>
+                  </div>
+                  <div class="metric-card">
           <div class="metric-value" style="color: ${getScoreColor(analysisData.scores?.competitionIntensity || 0)}">
             ${Math.round(analysisData.scores?.competitionIntensity || 0)}
           </div>
-          <div class="metric-title">Competition (Higher = Easier)</div>
-        </div>
-        <div class="metric-card">
+                      <div class="metric-title">Competition (Higher = Easier)</div>
+                  </div>
+                  <div class="metric-card">
           <div class="metric-value" style="color: ${getScoreColor(analysisData.scores?.seoDifficulty || 0)}">
             ${Math.round(analysisData.scores?.seoDifficulty || 0)}
           </div>
-          <div class="metric-title">SEO Difficulty (Higher = Easier)</div>
-        </div>
-      </div>
-    </div>
+                      <div class="metric-title">SEO Difficulty (Higher = Easier)</div>
+                  </div>
+              </div>
+          </div>
   `;
-
+  
   const generateDataTable = () => `
-    <div class="data-section">
-      <div class="data-title">Analysis Breakdown</div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Metric</th>
-            <th>Score</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Domain Availability</td>
-            <td>${Math.round(analysisData.scores?.domainStrength || 0)}/100</td>
-            <td>${getScoreLabel(analysisData.scores?.domainStrength || 0)}</td>
-          </tr>
-          <tr>
-            <td>Competition Level</td>
-            <td>${Math.round(analysisData.scores?.competitionIntensity || 0)}/100</td>
-            <td>${getScoreLabel(analysisData.scores?.competitionIntensity || 0)}</td>
-          </tr>
-          <tr>
-            <td>SEO Difficulty</td>
-            <td>${Math.round(analysisData.scores?.seoDifficulty || 0)}/100</td>
-            <td>${getScoreLabel(analysisData.scores?.seoDifficulty || 0)}</td>
-          </tr>
-          <tr>
-            <td>Overall Viability</td>
-            <td>${Math.round(analysisData.overallScore || 0)}/100</td>
-            <td>${getScoreLabel(analysisData.overallScore || 0)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+          <div class="data-section">
+              <div class="data-title">Analysis Breakdown</div>
+              <table class="data-table">
+                  <thead>
+                      <tr>
+                          <th>Metric</th>
+                          <th>Score</th>
+                          <th>Status</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      <tr>
+                          <td>Domain Availability</td>
+                          <td>${Math.round(analysisData.scores?.domainStrength || 0)}/100</td>
+                          <td>${getScoreLabel(analysisData.scores?.domainStrength || 0)}</td>
+                      </tr>
+                      <tr>
+                          <td>Competition Level</td>
+                          <td>${Math.round(analysisData.scores?.competitionIntensity || 0)}/100</td>
+                          <td>${getScoreLabel(analysisData.scores?.competitionIntensity || 0)}</td>
+                      </tr>
+                      <tr>
+                          <td>SEO Difficulty</td>
+                          <td>${Math.round(analysisData.scores?.seoDifficulty || 0)}/100</td>
+                          <td>${getScoreLabel(analysisData.scores?.seoDifficulty || 0)}</td>
+                      </tr>
+                      <tr>
+                          <td>Overall Viability</td>
+                          <td>${Math.round(analysisData.overallScore || 0)}/100</td>
+                          <td>${getScoreLabel(analysisData.overallScore || 0)}</td>
+                      </tr>
+                  </tbody>
+              </table>
+          </div>
   `;
-
+  
   const generateDomainSection = () => {
     const domains = analysisData.detailedAnalysis?.domainAvailability;
     if (!domains || !Array.isArray(domains) || domains.length === 0) {
       return `
-        <div class="domains-section">
-          <div class="domains-title">Domain Availability Analysis</div>
+          <div class="domains-section">
+              <div class="domains-title">Domain Availability Analysis</div>
           <div class="domain-item">
             <span class="domain-name">No domain data available</span>
           </div>
@@ -169,8 +169,8 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category) {
       <div class="domains-section">
         <div class="domains-title">Domain Availability Analysis</div>
         ${domains.map(domain => `
-          <div class="domain-item">
-            <span class="domain-name">${domain.domain || 'Unknown domain'}</span>
+                      <div class="domain-item">
+                          <span class="domain-name">${domain.domain || 'Unknown domain'}</span>
             <span class="domain-status ${domain.isAvailable ? 'available' : 'taken'}">
               ${domain.isAvailable ? 'Available' : 'Taken'}
             </span>
@@ -179,24 +179,24 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category) {
       </div>
     `;
   };
-
+  
   const generateCompetitorSection = () => {
-    const competitors = analysisData.competitors;
+              const competitors = analysisData.competitors;
     if (!competitors || !Array.isArray(competitors) || competitors.length === 0) {
       return '';
     }
 
-    return `
-      <div class="competitors-section">
-        <div class="competitors-title">Competitive Landscape</div>
-        ${competitors.slice(0, 10).map(competitor => `
-          <div class="competitor-row">
-            <span class="competitor-name">${competitor.name || competitor.url || 'Unknown'}</span>
-            <span class="competitor-score">${competitor.relevanceScore || 'N/A'}</span>
-          </div>
-        `).join('')}
-      </div>
-    `;
+                  return `
+                  <div class="competitors-section">
+                      <div class="competitors-title">Competitive Landscape</div>
+                      ${competitors.slice(0, 10).map(competitor => `
+                          <div class="competitor-row">
+                              <span class="competitor-name">${competitor.name || competitor.url || 'Unknown'}</span>
+                              <span class="competitor-score">${competitor.relevanceScore || 'N/A'}</span>
+                          </div>
+                      `).join('')}
+                  </div>
+                  `;
   };
 
   const generateDeepScanSection = () => {
@@ -211,7 +211,7 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category) {
 
     const generateCompetitorAnalysis = () => {
       if (!deepScanData.detailedAgentReports || deepScanData.detailedAgentReports.length === 0) {
-        return '';
+              return '';
       }
 
       return `
@@ -268,44 +268,44 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category) {
       `;
     };
 
-    return `
-      <div class="page-break"></div>
-      <div class="deep-scan-section">
-        <div class="premium-header">
-          <div class="premium-badge">PREMIUM ANALYSIS</div>
-          <h2 class="deep-scan-title">Deep Scan Intelligence Report</h2>
-          <p class="deep-scan-subtitle">Advanced AI-powered competitive analysis with live-scraped data</p>
-        </div>
+                  return `
+                  <div class="page-break"></div>
+                  <div class="deep-scan-section">
+                      <div class="premium-header">
+                          <div class="premium-badge">PREMIUM ANALYSIS</div>
+                          <h2 class="deep-scan-title">Deep Scan Intelligence Report</h2>
+                          <p class="deep-scan-subtitle">Advanced AI-powered competitive analysis with live-scraped data</p>
+      </div>
         ${generateCompetitorAnalysis()}
         ${deepScanData.analysis ? `
-          <div class="comparative-analysis-section">
-            <h3 class="section-title">AI Strategic Analysis</h3>
-            <div class="analysis-content">
+                      <div class="comparative-analysis-section">
+                          <h3 class="section-title">AI Strategic Analysis</h3>
+                          <div class="analysis-content">
               ${deepScanData.analysis.split('\n').map(p => p.trim() ? `<p>${p.trim()}</p>` : '').join('')}
-            </div>
-          </div>
-        ` : ''}
+                          </div>
+                      </div>
+                      ` : ''}
         ${deepScanData.competitorsAnalyzed && deepScanData.competitorsAnalyzed.length > 0 ? `
-          <div class="market-insights-section">
+                      <div class="market-insights-section">
             <h3 class="section-title">Competitors Analyzed</h3>
-            <div class="insights-grid">
+                          <div class="insights-grid">
               ${deepScanData.competitorsAnalyzed.map(competitor => `
-                <div class="insight-item">
+                                  <div class="insight-item">
                   <h6>${competitor.url || 'Unknown URL'}</h6>
                   <p>${competitor.title || 'No title available'}</p>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        ` : ''}
+              </div>
+          `).join('')}
       </div>
-    `;
+                      </div>
+                      ` : ''}
+                  </div>
+                  `;
   };
-
+  
   const generateRecommendations = () => `
-    <div class="recommendation-section">
-      <div class="recommendation-title">Strategic Recommendations</div>
-      <div class="recommendation-content">
+          <div class="recommendation-section">
+              <div class="recommendation-title">Strategic Recommendations</div>
+              <div class="recommendation-content">
         ${analysisData.recommendation || analysisData.summary || 
           `Based on our analysis of "${brandName || 'this brand'}" in the ${category || 'this'} industry, 
           we recommend careful consideration of the competitive landscape and domain availability. 
@@ -313,15 +313,15 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category) {
       </div>
     </div>
   `;
-
+  
   const generateFooter = () => `
-    <div class="footer">
-      <div class="footer-logo">CenterPage</div>
-      <div class="footer-text">
-        This report was generated by CenterPage's AI-powered brand analysis engine.<br>
-        © ${new Date().getFullYear()} CenterPage. All rights reserved. | Professional Brand Intelligence
-      </div>
-    </div>
+      <div class="footer">
+              <div class="footer-logo">CenterPage</div>
+              <div class="footer-text">
+                  This report was generated by CenterPage's AI-powered brand analysis engine.<br>
+                  © ${new Date().getFullYear()} CenterPage. All rights reserved. | Professional Brand Intelligence
+              </div>
+          </div>
   `;
 
   // CSS Styles
@@ -542,7 +542,7 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category) {
         ${generateRecommendations()}
         ${generateFooter()}
       </div>
-    </body>
-    </html>
-  `;
-}
+  </body>
+  </html>
+    `;
+  } 
