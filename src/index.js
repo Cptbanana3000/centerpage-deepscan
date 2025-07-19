@@ -31,6 +31,7 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 // Deep Scan Endpoint: Receives a request and performs the web scraping.
 app.post(['/deep-scan', '/api/deep-scan'], apiKeyAuth, async (req, res) => {
   try {
+    console.log(`🚀 Received deep scan request for: ${req.body.brandName}`);
     const { brandName, category, competitorUrls } = req.body;
 
     if (!brandName || !Array.isArray(competitorUrls) || competitorUrls.length === 0) {
@@ -45,6 +46,7 @@ app.post(['/deep-scan', '/api/deep-scan'], apiKeyAuth, async (req, res) => {
       .digest('hex')
       .substring(0, 16); // Use first 16 chars for shorter jobId
 
+    console.log(`📝 Adding job to queue with ID: ${fingerprint}`);
     const job = await analysisQueue.add(
       'deepScan', 
       { brandName, category, competitorUrls },
@@ -55,6 +57,9 @@ app.post(['/deep-scan', '/api/deep-scan'], apiKeyAuth, async (req, res) => {
     return res.status(202).json({ jobId: job.id });
   } catch (error) {
     console.error('Deep Scan Queueing Error:', error);
+    if (error.message.includes('429') || error.message.includes('rate limit')) {
+      console.error('🚨 RATE LIMIT ERROR DETECTED:', error);
+    }
     return res.status(500).json({ message: error.message });
   }
 });

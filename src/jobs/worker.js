@@ -22,11 +22,18 @@ worker.on('completed', async (job, result) => {
   try {
     console.log(`🎯 Saving job ${job.id} results to Firestore document: deepScans/${job.id}`);
     const docRef = db.collection('deepScans').doc(job.id);
+    
+    // Extract the actual analysis data from the result structure
+    const analysisData = result.success && result.data ? result.data : result;
+    
     const dataToSave = {
       ...job.data,
-      ...result,
+      ...analysisData, // Save the actual analysis data, not the wrapper
+      success: result.success,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
+    
+    console.log(`📊 Data structure being saved:`, JSON.stringify(Object.keys(dataToSave), null, 2));
     await docRef.set(dataToSave);
     console.log(`✅ Job ${job.id} completed and results saved to Firestore.`);
   } catch (error) {
