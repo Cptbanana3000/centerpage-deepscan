@@ -101,8 +101,14 @@ app.get(['/analysis-status/:jobId', '/api/analysis-status/:jobId'], apiKeyAuth, 
 // PDF Export Endpoint: Receives report data and generates a PDF file.
 app.post(['/export-pdf', '/api/export-pdf'], apiKeyAuth, async (req, res) => {
   try {
-    const { analysisData, brandName, category } = req.body;
-    const html = generateProfessionalPdfHtml(analysisData, brandName, category);
+    const { analysisData, brandName, category, logoUrl, deepScanData } = req.body;
+    
+    // Validate required fields
+    if (!analysisData || !brandName) {
+      return res.status(400).json({ message: 'analysisData and brandName are required.' });
+    }
+    
+    const html = generateProfessionalPdfHtml(analysisData, brandName, category, logoUrl, deepScanData);
     const pdfBuffer = await generatePdfFromHtml(html);
     
     const filename = `${brandName.replace(/[^a-zA-Z0-9]/g, '-')}-report.pdf`;
