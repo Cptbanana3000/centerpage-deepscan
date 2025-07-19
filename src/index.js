@@ -96,6 +96,17 @@ app.get(['/analysis-status/:jobId', '/api/analysis-status/:jobId'], apiKeyAuth, 
       console.log(`🔍 Has detailedAgentReports:`, !!firestoreData.detailedAgentReports);
       console.log(`🔍 Has analysis:`, !!firestoreData.analysis);
       console.log(`🔍 Has competitorsAnalyzed:`, !!firestoreData.competitorsAnalyzed);
+      
+      // Log the actual data structure being sent to frontend
+      console.log(`📤 Sending to frontend:`, {
+        state: response.state,
+        progress: response.progress,
+        resultKeys: Object.keys(firestoreData),
+        hasDeepScanData: !!firestoreData.detailedAgentReports,
+        analysisLength: firestoreData.analysis?.length || 0,
+        competitorsCount: firestoreData.competitorsAnalyzed?.length || 0
+      });
+      
       response.result = firestoreData;
     } else if (state === 'failed') {
       response.error = job.failedReason;
@@ -104,6 +115,49 @@ app.get(['/analysis-status/:jobId', '/api/analysis-status/:jobId'], apiKeyAuth, 
     return res.status(200).json(response);
   } catch (error) {
     console.error(`❌ Status Endpoint Error for jobId ${jobId}:`, error);
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+// View Report Endpoint: Get report data by brand name and category
+app.get(['/view-report', '/api/view-report'], apiKeyAuth, async (req, res) => {
+  try {
+    const { brandName, category } = req.query;
+    console.log(`🔍 View report request for: ${brandName} in ${category}`);
+    
+    if (!brandName) {
+      return res.status(400).json({ message: 'brandName is required' });
+    }
+
+    // Search for the most recent report for this brand
+    const reportsRef = db.collection('deepScans');
+    const snapshot = await reportsRef
+      .where('brandName', '==', brandName)
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      console.log(`❌ No reports found for brand: ${brandName}`);
+      return res.status(404).json({ message: 'Report not found' });
+    }
+
+    const doc = snapshot.docs[0];
+    const reportData = doc.data();
+    
+    console.log(`✅ Found report for ${brandName}:`, {
+      jobId: doc.id,
+      hasDeepScanData: !!reportData.detailedAgentReports,
+      analysisLength: reportData.analysis?.length || 0
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: reportData,
+      jobId: doc.id
+    });
+  } catch (error) {
+    console.error('View Report Endpoint Error:', error);
     return res.status(500).json({ message: error.message });
   }
 });
