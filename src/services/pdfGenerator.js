@@ -32,7 +32,7 @@ export async function generatePdfFromHtml(html) {
   }
 }
 
-export function generateProfessionalPdfHtml(analysisData, brandName, category, logoUrl, deepScanData) {
+export function generateProfessionalPdfHtml(analysisData, brandName, category) {
   const currentDate = new Date().toLocaleDateString('en-US', { 
     year: 'numeric', month: 'long', day: 'numeric' 
   });
@@ -50,52 +50,23 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category, l
     return 'Needs Attention';
   };
 
-  // Helper function to escape HTML
-  const escapeHtml = (text) => {
-    if (!text) return '';
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  };
-
   // Component Generators
-  const generateHeader = () => {
-    // Validate and sanitize logo URL
-    const isValidLogoUrl = logoUrl && 
-                          typeof logoUrl === 'string' && 
-                          (logoUrl.startsWith('http://') || logoUrl.startsWith('https://'));
-    
-    return `
-      <div class="header">
-        <div class="header-content">
-          ${isValidLogoUrl ? `
-            <div class="logo-container">
-              <img src="${escapeHtml(logoUrl)}" alt="CenterPage Logo" class="company-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
-              <div class="logo" style="display: none;">CenterPage</div>
-            </div>
-          ` : `
-            <div class="logo">CenterPage</div>
-          `}
-          <div class="header-text">
-            <h1>Brand Analysis Report</h1>
-            <div class="brand-info">${escapeHtml(brandName || 'Unknown Brand')}</div>
-            <div class="brand-info">${escapeHtml(category || 'General')} Industry</div>
-            <div class="date-info">Generated on ${currentDate}</div>
-          </div>
-        </div>
-      </div>
-    `;
-  };
+  const generateHeader = () => `
+    <div class="header">
+      <div class="logo">CenterPage</div>
+      <h1>Brand Analysis Report</h1>
+      <div class="brand-info">${brandName || 'Unknown Brand'}</div>
+      <div class="brand-info">${category || 'General'} Industry</div>
+      <div class="date-info">Generated on ${currentDate}</div>
+    </div>
+  `;
 
   const generateExecutiveSummary = () => `
     <div class="executive-summary">
       <h2>Executive Summary</h2>
       <div class="summary-content">
-        This comprehensive brand analysis evaluates "<strong>${escapeHtml(brandName || 'your brand')}</strong>" 
-        for market viability in the ${escapeHtml(category || 'business')} industry. Our analysis examines domain 
+        This comprehensive brand analysis evaluates "<strong>${brandName || 'your brand'}</strong>" 
+        for market viability in the ${category || 'business'} industry. Our analysis examines domain 
         availability, competitive landscape, and market positioning to provide data-driven insights 
         for strategic decision making.
       </div>
@@ -229,25 +200,24 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category, l
   };
 
   const generateDeepScanSection = () => {
-    const scanData = deepScanData || 
-                    analysisData.deepScanData || 
-                    analysisData.detailedAnalysis?.deepScanData || 
-                    analysisData.data || 
-                    analysisData;
+    const deepScanData = analysisData.deepScanData || 
+                        analysisData.detailedAnalysis?.deepScanData || 
+                        analysisData.data || 
+                        analysisData;
 
-    if (!scanData || (!scanData.competitorsAnalyzed && !scanData.analysis && !scanData.detailedAgentReports)) {
+    if (!deepScanData || (!deepScanData.competitorsAnalyzed && !deepScanData.analysis && !deepScanData.detailedAgentReports)) {
       return '';
     }
 
     const generateCompetitorAnalysis = () => {
-      if (!scanData.detailedAgentReports || scanData.detailedAgentReports.length === 0) {
+      if (!deepScanData.detailedAgentReports || deepScanData.detailedAgentReports.length === 0) {
         return '';
       }
 
       return `
         <div class="deep-competitors-section">
           <h3 class="section-title">Detailed Competitor Analysis</h3>
-          ${scanData.detailedAgentReports.map(competitor => `
+          ${deepScanData.detailedAgentReports.map(competitor => `
             <div class="deep-competitor-card">
               <div class="competitor-header">
                 <h4>${competitor.url || 'Unknown Competitor'}</h4>
@@ -307,19 +277,19 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category, l
           <p class="deep-scan-subtitle">Advanced AI-powered competitive analysis with live-scraped data</p>
         </div>
         ${generateCompetitorAnalysis()}
-        ${scanData.analysis ? `
+        ${deepScanData.analysis ? `
           <div class="comparative-analysis-section">
             <h3 class="section-title">AI Strategic Analysis</h3>
             <div class="analysis-content">
-              ${scanData.analysis.split('\n').map(p => p.trim() ? `<p>${p.trim()}</p>` : '').join('')}
+              ${deepScanData.analysis.split('\n').map(p => p.trim() ? `<p>${p.trim()}</p>` : '').join('')}
             </div>
           </div>
         ` : ''}
-        ${scanData.competitorsAnalyzed && scanData.competitorsAnalyzed.length > 0 ? `
+        ${deepScanData.competitorsAnalyzed && deepScanData.competitorsAnalyzed.length > 0 ? `
           <div class="market-insights-section">
             <h3 class="section-title">Competitors Analyzed</h3>
             <div class="insights-grid">
-              ${scanData.competitorsAnalyzed.map(competitor => `
+              ${deepScanData.competitorsAnalyzed.map(competitor => `
                 <div class="insight-item">
                   <h6>${competitor.url || 'Unknown URL'}</h6>
                   <p>${competitor.title || 'No title available'}</p>
@@ -336,10 +306,10 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category, l
     <div class="recommendation-section">
       <div class="recommendation-title">Strategic Recommendations</div>
       <div class="recommendation-content">
-        ${escapeHtml(analysisData.recommendation || analysisData.summary || 
+        ${analysisData.recommendation || analysisData.summary || 
           `Based on our analysis of "${brandName || 'this brand'}" in the ${category || 'this'} industry, 
           we recommend careful consideration of the competitive landscape and domain availability. 
-          Focus on building a strong brand identity that differentiates from existing market players.`)}
+          Focus on building a strong brand identity that differentiates from existing market players.`}
       </div>
     </div>
   `;
@@ -370,30 +340,12 @@ export function generateProfessionalPdfHtml(analysisData, brandName, category, l
       
       .header {
         background: #f9fafb; border-bottom: 3px solid #1f2937; color: #1f2937;
-        padding: 40px 30px;
-      }
-      
-      .header-content {
-        display: flex; align-items: center; justify-content: center; gap: 20px;
-        flex-wrap: wrap;
-      }
-      
-      .logo-container {
-        flex-shrink: 0;
-      }
-      
-      .company-logo {
-        max-width: 120px; max-height: 60px; object-fit: contain;
-        border-radius: 4px;
-      }
-      
-      .header-text {
-        text-align: center; flex: 1;
+        padding: 40px 30px; text-align: center;
       }
       
       .logo { font-size: 28px; font-weight: 700; margin-bottom: 16px; color: #1f2937; }
       
-      .header-text h1 { font-size: 24px; font-weight: 600; margin-bottom: 12px; color: #374151; }
+      .header h1 { font-size: 24px; font-weight: 600; margin-bottom: 12px; color: #374151; }
       
       .brand-info { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1f2937; }
       
