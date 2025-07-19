@@ -107,7 +107,26 @@ app.get(['/analysis-status/:jobId', '/api/analysis-status/:jobId'], apiKeyAuth, 
         competitorsCount: firestoreData.competitorsAnalyzed?.length || 0
       });
       
-      response.result = firestoreData;
+      // Restructure the data to match what frontend expects
+      // Extract the core analysis data and put it at the top level
+      const restructuredData = {
+        // Core analysis data (what frontend expects)
+        analysis: firestoreData.analysis,
+        detailedAgentReports: firestoreData.detailedAgentReports,
+        competitorsAnalyzed: firestoreData.competitorsAnalyzed,
+        
+        // Additional metadata (preserved but not at top level)
+        metadata: {
+          brandName: firestoreData.brandName,
+          category: firestoreData.category,
+          competitorUrls: firestoreData.competitorUrls,
+          timestamp: firestoreData.timestamp,
+          success: firestoreData.success,
+          createdAt: firestoreData.createdAt
+        }
+      };
+      
+      response.result = restructuredData;
     } else if (state === 'failed') {
       response.error = job.failedReason;
     }
@@ -151,9 +170,27 @@ app.get(['/view-report', '/api/view-report'], apiKeyAuth, async (req, res) => {
       analysisLength: reportData.analysis?.length || 0
     });
 
+    // Restructure the data to match what frontend expects
+    const restructuredData = {
+      // Core analysis data (what frontend expects)
+      analysis: reportData.analysis,
+      detailedAgentReports: reportData.detailedAgentReports,
+      competitorsAnalyzed: reportData.competitorsAnalyzed,
+      
+      // Additional metadata (preserved but not at top level)
+      metadata: {
+        brandName: reportData.brandName,
+        category: reportData.category,
+        competitorUrls: reportData.competitorUrls,
+        timestamp: reportData.timestamp,
+        success: reportData.success,
+        createdAt: reportData.createdAt
+      }
+    };
+
     return res.status(200).json({
       success: true,
-      data: reportData,
+      data: restructuredData,
       jobId: doc.id
     });
   } catch (error) {
