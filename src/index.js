@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { generatePdfFromHtml, generateProfessionalPdfHtml } from './services/pdfGenerator.js';
 import { analysisQueue } from './jobs/queue.js';
 import db from './services/firestoreService.js';
+import rateLimit from 'express-rate-limit';
 
 // --- SERVER SETUP ---
 const app = express();
@@ -12,6 +13,16 @@ const port = process.env.PORT || 10000;
 
 app.use(express.json({ limit: '10mb' })); // Allow large JSON payloads
 app.use(cors()); // Allow requests from your frontend
+
+// --- GLOBAL RATE LIMITER ---
+// Limits each IP to 20 requests per minute across all endpoints
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(apiLimiter);
 
 // --- SECURITY MIDDLEWARE ---
 // This function acts as a bouncer, checking for the secret API key.
