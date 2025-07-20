@@ -14,15 +14,23 @@ const port = process.env.PORT || 10000;
 app.use(express.json({ limit: '10mb' })); // Allow large JSON payloads
 app.use(cors()); // Allow requests from your frontend
 
-// --- GLOBAL RATE LIMITER ---
+// --- ROUTE-SPECIFIC RATE LIMITERS ---
 // Limits each IP to 20 requests per minute across all endpoints
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 20,
+// Limit deep-scan creation to 5 per minute per IP
+const deepScanLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use(apiLimiter);
+
+// Allow frequent polling: up to 120 per minute per IP
+const statusLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // --- SECURITY MIDDLEWARE ---
 // This function acts as a bouncer, checking for the secret API key.
@@ -40,7 +48,7 @@ const apiKeyAuth = (req, res, next) => {
 app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
 // Deep Scan Endpoint: Receives a request and performs the web scraping.
-app.post(['/deep-scan', '/api/deep-scan'], apiKeyAuth, async (req, res) => {
+app.post(['/deep-scan', '/api/deep-scan'], apiKeyAuth, deepScanLimiter, async (req, res) => {
   try {
     console.log(`🚀 Received deep scan request for: ${req.body.brandName}`);
     const { brandName, category, competitorUrls } = req.body;
@@ -76,7 +84,7 @@ app.post(['/deep-scan', '/api/deep-scan'], apiKeyAuth, async (req, res) => {
 });
 
 // Polling endpoint to check job status and fetch result
-app.get(['/analysis-status/:jobId', '/api/analysis-status/:jobId'], apiKeyAuth, async (req, res) => {
+app.get(['/analysis-status/:jobId', '/api/analysis-status/:jobId'], apiKeyAuth, statusLimiter, async (req, res) => {
   const { jobId } = req.params;
   console.log(`🔍 Status check for jobId: ${jobId}`);
   
