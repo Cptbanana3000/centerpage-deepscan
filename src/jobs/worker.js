@@ -13,11 +13,11 @@ const worker = new Worker('analysisQueue', async job => {
   return analysis;
 }, { 
   connection,
-  concurrency: 3,
-  // limiter: {
-  //   max: 20, // Max 20 jobs
-  //   duration: 60000, // per 60 seconds
-  // },
+  concurrency: 1,
+  limiter: {
+    max: 20, // Max 20 jobs
+    duration: 60000, // per 60 seconds
+  },
 });
 
 worker.on('completed', async (job, result) => {
