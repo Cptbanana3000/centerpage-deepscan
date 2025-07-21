@@ -140,6 +140,16 @@ app.get(['/analysis-status/:jobId', '/api/analysis-status/:jobId'], apiKeyAuth, 
       };
       
       response.result = restructuredData;
+      
+      // Debug: Log the actual data being sent
+      console.log(`🔍 [DEBUG] Analysis data being sent:`, {
+        hasAnalysis: !!restructuredData.analysis,
+        analysisLength: restructuredData.analysis?.length || 0,
+        hasDetailedReports: !!restructuredData.detailedAgentReports,
+        detailedReportsLength: restructuredData.detailedAgentReports?.length || 0,
+        hasCompetitors: !!restructuredData.competitorsAnalyzed,
+        competitorsLength: restructuredData.competitorsAnalyzed?.length || 0
+      });
     } else if (state === 'failed') {
       response.error = job.failedReason;
     }

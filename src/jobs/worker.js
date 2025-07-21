@@ -37,7 +37,7 @@ worker.on('completed', async (job, result) => {
     const analysisData = result.success && result.data ? result.data : result;
     
     const dataToSave = {
-      ...job.data,
+      ...job.data, // Preserve original job data (brandName, category, competitorUrls)
       ...analysisData, // Save the actual analysis data, not the wrapper
       success: result.success,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
