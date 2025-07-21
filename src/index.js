@@ -48,7 +48,7 @@ const apiKeyAuth = (req, res, next) => {
 app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
 // Deep Scan Endpoint: Receives a request and performs the web scraping.
-app.post(['/deep-scan', '/api/deep-scan'], apiKeyAuth, deepScanLimiter, async (req, res) => {
+app.post(['/deep-scan', '/api/deep-scan'], apiKeyAuth, async (req, res) => {
   try {
     console.log(`🚀 Received deep scan request for: ${req.body.brandName}`);
     const { brandName, category, competitorUrls } = req.body;
@@ -73,6 +73,11 @@ app.post(['/deep-scan', '/api/deep-scan'], apiKeyAuth, deepScanLimiter, async (r
     );
     
     console.log(`🎯 Job ${job.id} queued for brand: ${brandName} (${competitorUrls.length} competitors)`);
+    
+    // Log queue status
+    const waiting = await analysisQueue.getWaiting();
+    const active = await analysisQueue.getActive();
+    console.log(`📊 Queue Status - Waiting: ${waiting.length}, Active: ${active.length}`);
     return res.status(202).json({ jobId: job.id });
   } catch (error) {
     console.error('Deep Scan Queueing Error:', error);
