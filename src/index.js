@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { generatePdfFromHtml, generateProfessionalPdfHtml } from './services/pdfGenerator.js';
 import { analysisQueue } from './jobs/queue.js';
 import db from './services/firestoreService.js';
-import rateLimit from 'express-rate-limit';
+// Rate limiting removed - using queue-based concurrency control
 
 // --- SERVER SETUP ---
 const app = express();
@@ -17,23 +17,9 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '10mb' })); // Allow large JSON payloads
 app.use(cors()); // Allow requests from your frontend
 
-// --- ROUTE-SPECIFIC RATE LIMITERS ---
-// Limits each IP to 20 requests per minute across all endpoints
-// Limit deep-scan creation to 5 per minute per IP
-const deepScanLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Allow frequent polling: up to 120 per minute per IP
-const statusLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 120,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// --- RATE LIMITING REMOVED ---
+// Removed API-level rate limiters since queue handles concurrency
+// Queue settings: concurrency: 1, max: 20 jobs per minute
 
 // --- SECURITY MIDDLEWARE ---
 // This function acts as a bouncer, checking for the secret API key.
@@ -66,9 +52,9 @@ app.post(['/deep-scan', '/api/deep-scan'], apiKeyAuth, async (req, res) => {
       .createHash('sha256')
       .update(JSON.stringify({ brandName, category: category || 'General', competitorUrls: sortedUrls }))
       .digest('hex')
-      .substring(0, 16); // Use first 16 chars for shorter jobId
+      .substring(0, 24); // Increased to 24 chars to reduce collision chance
 
-    console.log(`📝 Adding job to queue with ID: ${fingerprint}`);
+    console.log(`📝 Adding job to queue with ID: ${fingerprint} for brand: ${brandName}`);
     const job = await analysisQueue.add(
       'deepScan', 
       { brandName, category, competitorUrls },
@@ -92,7 +78,7 @@ app.post(['/deep-scan', '/api/deep-scan'], apiKeyAuth, async (req, res) => {
 });
 
 // Polling endpoint to check job status and fetch result
-app.get(['/analysis-status/:jobId', '/api/analysis-status/:jobId'], apiKeyAuth, statusLimiter, async (req, res) => {
+app.get(['/analysis-status/:jobId', '/api/analysis-status/:jobId'], apiKeyAuth, async (req, res) => {
   const { jobId } = req.params;
   console.log(`🔍 Status check for jobId: ${jobId}`);
   

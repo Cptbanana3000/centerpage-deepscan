@@ -7,8 +7,10 @@ const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379'
   enableReadyCheck: false,
   lazyConnect: true,
   // Set Redis configuration to prevent eviction
-  commandTimeout: 5000,
+  commandTimeout: 30000, // Increased timeout
   retryDelayOnClusterDown: 300,
+  connectTimeout: 30000,
+  keepAlive: 30000,
   maxRetriesPerRequest: null,
 });
 

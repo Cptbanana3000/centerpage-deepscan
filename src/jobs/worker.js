@@ -7,9 +7,16 @@ import { connection } from './queue.js';
 
 const worker = new Worker('analysisQueue', async job => {
   const { brandName, category, competitorUrls } = job.data;
-  console.log(`Processing job ${job.id} for brand: ${brandName}`);
-  console.log(`🔍 Job details - ID: ${job.id}, Name: ${job.name}, Data:`, JSON.stringify(job.data, null, 2));
+  console.log(`🚀 [WORKER] Starting job ${job.id} for brand: ${brandName}`);
+  console.log(`🔍 [WORKER] Job details - ID: ${job.id}, Name: ${job.name}, Data:`, JSON.stringify(job.data, null, 2));
+  
+  // Add job isolation check
+  const jobStartTime = new Date().toISOString();
+  console.log(`⏰ [WORKER] Job ${job.id} started at: ${jobStartTime}`);
+  
   const analysis = await performMultipleDeepScan(competitorUrls, brandName, category);
+  
+  console.log(`✅ [WORKER] Job ${job.id} for brand: ${brandName} completed successfully`);
   return analysis;
 }, { 
   connection,
@@ -22,7 +29,8 @@ const worker = new Worker('analysisQueue', async job => {
 
 worker.on('completed', async (job, result) => {
   try {
-    console.log(`🎯 Saving job ${job.id} results to Firestore document: deepScans/${job.id}`);
+    const { brandName } = job.data;
+    console.log(`🎯 [WORKER] Saving job ${job.id} (${brandName}) results to Firestore document: deepScans/${job.id}`);
     const docRef = db.collection('deepScans').doc(job.id);
     
     // Extract the actual analysis data from the result structure
@@ -35,11 +43,11 @@ worker.on('completed', async (job, result) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
     
-    console.log(`📊 Data structure being saved:`, JSON.stringify(Object.keys(dataToSave), null, 2));
+    console.log(`📊 [WORKER] Data structure being saved for ${brandName}:`, JSON.stringify(Object.keys(dataToSave), null, 2));
     await docRef.set(dataToSave);
-    console.log(`✅ Job ${job.id} completed and results saved to Firestore.`);
+    console.log(`✅ [WORKER] Job ${job.id} (${brandName}) completed and results saved to Firestore.`);
   } catch (error) {
-    console.error(`❌ Failed to save job ${job.id} results to Firestore:`, error);
+    console.error(`❌ [WORKER] Failed to save job ${job.id} results to Firestore:`, error);
   }
 });
 
