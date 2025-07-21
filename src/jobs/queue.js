@@ -5,8 +5,11 @@ const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379'
   maxRetriesPerRequest: null,
   retryDelayOnFailover: 100,
   enableReadyCheck: false,
-  maxRetriesPerRequest: null,
   lazyConnect: true,
+  // Set Redis configuration to prevent eviction
+  commandTimeout: 5000,
+  retryDelayOnClusterDown: 300,
+  maxRetriesPerRequest: null,
 });
 
 // Test Redis connection
@@ -18,8 +21,16 @@ connection.on('error', (err) => {
   console.error('❌ Redis connection error:', err);
 });
 
-connection.on('ready', () => {
+connection.on('ready', async () => {
   console.log('✅ Redis is ready');
+  
+  // Set Redis eviction policy to noeviction to prevent data loss
+  try {
+    await connection.config('SET', 'maxmemory-policy', 'noeviction');
+    console.log('✅ Redis eviction policy set to noeviction');
+  } catch (error) {
+    console.warn('⚠️ Could not set Redis eviction policy:', error.message);
+  }
 });
 
 const defaultJobOptions = {

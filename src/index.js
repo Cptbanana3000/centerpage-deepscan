@@ -11,6 +11,9 @@ import rateLimit from 'express-rate-limit';
 const app = express();
 const port = process.env.PORT || 10000;
 
+// Trust proxy for proper rate limiting behind load balancers
+app.set('trust proxy', 1);
+
 app.use(express.json({ limit: '10mb' })); // Allow large JSON payloads
 app.use(cors()); // Allow requests from your frontend
 
