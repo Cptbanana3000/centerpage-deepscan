@@ -103,7 +103,12 @@ function drawScoreBar(doc, label, score, x, y) {
 export async function generatePdfWithKit(analysisData, brandName, category) {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: 'A4', margins: { top: 50, bottom: 50, left: 50, right: 50 }, bufferPages: true });
+      const doc = new PDFDocument({ size: 'A4', margins: { top: 50, bottom: 50, left: 50, right: 50 } });
+
+      // Automatically add a header to every new page
+      doc.on('pageAdded', () => {
+        drawHeader(doc, brandName);
+      });
       const buffers = [];
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
@@ -154,8 +159,8 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
 
       // Check if we need a new page
       if (doc.y > 650) {
+        drawFooter(doc);
         doc.addPage();
-        drawHeader(doc, brandName);
         doc.moveDown(2);
       }
 
@@ -168,6 +173,7 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
         const paragraphs = analysis.split('\n').filter(p => p.trim());
         paragraphs.forEach(paragraph => {
           if (doc.y > 700) {
+            drawFooter(doc);
             doc.addPage();
             drawHeader(doc, brandName);
             doc.moveDown(2);
@@ -186,7 +192,6 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
       // --- Page 2+: Detailed Agent Reports ---
       if (detailedAgentReports && detailedAgentReports.length > 0) {
         doc.addPage();
-        drawHeader(doc, brandName);
         doc.moveDown(2);
         
         doc.font('Helvetica-Bold').fontSize(16).text('Detailed Competitor Analysis', { align: 'center' });
@@ -196,6 +201,7 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
         detailedAgentReports.forEach((competitor, index) => {
           // Check if we need a new page for each competitor
           if (index > 0 || doc.y > 600) {
+            drawFooter(doc);
             doc.addPage();
             drawHeader(doc, brandName);
             doc.moveDown(2);
@@ -289,7 +295,6 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
       
       // Final page with timestamp and metadata
       doc.addPage();
-      drawHeader(doc, brandName);
       doc.moveDown(3);
       
       doc.font('Helvetica-Bold').fontSize(14).text('Report Metadata', { align: 'center' });
@@ -311,7 +316,6 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
       });
       
       drawFooter(doc);
-      
       // Finalize the PDF and send the buffer
       doc.end();
 
