@@ -113,6 +113,17 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
       console.log('🔍 [PDF] Has analysis:', !!analysisData.analysis);
       console.log('🔍 [PDF] Has competitorsAnalyzed:', !!analysisData.competitorsAnalyzed);
 
+      // Resolve deep scan data regardless of nesting structure
+      const deepScan = analysisData.deepScanData || analysisData.detailedAnalysis?.deepScanData || {};
+      const analysis = analysisData.analysis || deepScan.analysis || '';
+      const detailedAgentReports = analysisData.detailedAgentReports || deepScan.detailedAgentReports || [];
+      const competitorsAnalyzed = analysisData.competitorsAnalyzed || deepScan.competitorsAnalyzed || [];
+      const scores = analysisData.scores || analysisData.overallScore ? { overallViability: analysisData.overallScore } : (analysisData.scores || {});
+
+      console.log('🔍 [PDF] Resolved deepScan analysis length:', analysis?.length || 0);
+      console.log('🔍 [PDF] Resolved detailedAgentReports:', detailedAgentReports.length);
+      console.log('🔍 [PDF] Resolved competitorsAnalyzed:', competitorsAnalyzed.length);
+
       // --- Page 1: Title and Executive Summary ---
       drawHeader(doc, brandName);
       doc.moveDown(3);
@@ -121,18 +132,18 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
       doc.font('Helvetica-Bold').fontSize(14).text('Executive Summary');
       doc.moveDown(1);
       doc.font('Helvetica').fontSize(10).text(
-        `This comprehensive brand analysis evaluates "${brandName}" for market viability in the ${category} industry. Our AI-powered deep scan analyzed ${analysisData.competitorsAnalyzed?.length || 0} competitors using advanced web scraping and multi-agent analysis to provide data-driven insights for strategic decision making.`,
+        `This comprehensive brand analysis evaluates "${brandName}" for market viability in the ${category} industry. Our AI-powered deep scan analyzed ${competitorsAnalyzed.length} competitors using advanced web scraping and multi-agent analysis to provide data-driven insights for strategic decision making.`,
         { width: 500, align: 'justify' }
       );
       
       doc.moveDown(2);
 
       // Competitors Analyzed Summary
-      if (analysisData.competitorsAnalyzed && analysisData.competitorsAnalyzed.length > 0) {
+      if (competitorsAnalyzed && competitorsAnalyzed.length > 0) {
         doc.font('Helvetica-Bold').fontSize(12).text('Competitors Analyzed');
         doc.moveDown(0.5);
         
-        analysisData.competitorsAnalyzed.forEach((competitor, index) => {
+        competitorsAnalyzed.forEach((competitor, index) => {
           doc.font('Helvetica').fontSize(9)
             .text(`${index + 1}. ${competitor.url || 'Unknown URL'}`, { indent: 20 })
             .text(`   ${competitor.title || 'No title available'}`, { indent: 20, color: '#666666' });
@@ -149,12 +160,12 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
       }
 
       // --- AI Strategic Analysis ---
-      if (analysisData.analysis) {
+      if (analysis) {
         doc.font('Helvetica-Bold').fontSize(14).text('AI Strategic Analysis');
         doc.moveDown(1);
         
         // Split analysis into paragraphs and render
-        const paragraphs = analysisData.analysis.split('\n').filter(p => p.trim());
+        const paragraphs = analysis.split('\n').filter(p => p.trim());
         paragraphs.forEach(paragraph => {
           if (doc.y > 700) {
             doc.addPage();
@@ -173,7 +184,7 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
       drawFooter(doc);
 
       // --- Page 2+: Detailed Agent Reports ---
-      if (analysisData.detailedAgentReports && analysisData.detailedAgentReports.length > 0) {
+      if (detailedAgentReports && detailedAgentReports.length > 0) {
         doc.addPage();
         drawHeader(doc, brandName);
         doc.moveDown(2);
@@ -182,7 +193,7 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
         doc.font('Helvetica').fontSize(10).text('AI-Powered Multi-Agent Intelligence Reports', { align: 'center', color: '#666666' });
         doc.moveDown(2);
         
-        analysisData.detailedAgentReports.forEach((competitor, index) => {
+        detailedAgentReports.forEach((competitor, index) => {
           // Check if we need a new page for each competitor
           if (index > 0 || doc.y > 600) {
             doc.addPage();
@@ -267,7 +278,7 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
           }
           
           // Add separator line between competitors
-          if (index < analysisData.detailedAgentReports.length - 1) {
+          if (index < detailedAgentReports.length - 1) {
             doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
             doc.moveDown(1);
           }
@@ -288,8 +299,8 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
         ['Report Generated:', new Date().toLocaleString()],
         ['Brand Name:', brandName || 'Unknown'],
         ['Category:', category || 'General'],
-        ['Competitors Analyzed:', analysisData.competitorsAnalyzed?.length || 0],
-        ['Analysis Timestamp:', analysisData.timestamp || 'Unknown'],
+        ['Competitors Analyzed:', competitorsAnalyzed.length],
+        ['Analysis Timestamp:', analysisData.timestamp || deepScan.timestamp || 'Unknown'],
         ['Analysis Method:', 'AI Multi-Agent Deep Scan']
       ];
       
