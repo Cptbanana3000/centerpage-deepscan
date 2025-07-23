@@ -1,9 +1,10 @@
+
+
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
 import crypto from 'crypto';
-import { generatePdfWithKit } from './services/pdfGenerator.js';
-
+import { generatePdfFromHtml, generateProfessionalPdfHtml } from './services/pdfGenerator.js';
 import { analysisQueue } from './jobs/queue.js';
 import db from './services/firestoreService.js';
 // Rate limiting removed - using queue-based concurrency control
@@ -227,20 +228,18 @@ app.get(['/view-report', '/api/view-report'], apiKeyAuth, async (req, res) => {
 app.post(['/export-pdf', '/api/export-pdf'], apiKeyAuth, async (req, res) => {
   try {
     const { analysisData, brandName, category } = req.body;
-
-    // Call the new PDFKit generator directly
-    const pdfBuffer = await generatePdfWithKit(analysisData, brandName, category);
-
+    const html = generateProfessionalPdfHtml(analysisData, brandName, category);
+    const pdfBuffer = await generatePdfFromHtml(html);
+    
     const filename = `${brandName.replace(/[^a-zA-Z0-9]/g, '-')}-report.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(pdfBuffer);
   } catch (error) {
     console.error('PDF Export Endpoint Error:', error);
-    return res.status(500).json({ message: 'Failed to generate PDF report.' });
+    return res.status(500).json({ message: error.message });
   }
 });
-
 
 // --- START THE SERVER ---
 app.listen(port, () => {

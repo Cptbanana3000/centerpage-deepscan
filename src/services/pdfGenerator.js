@@ -1,327 +1,548 @@
-// ./services/pdfGenerator.js
-// Advanced PDF generator using PDFKit to create professional, styled reports.
-
-import PDFDocument from 'pdfkit';
-import fs from 'fs'; // Used to load the logo image
-
-// --- Helper Functions for Styling and Drawing ---
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 /**
- * Draws the header on each page.
- * @param {PDFDocument} doc - The PDFKit document instance.
- * @param {string} brandName - The brand name for the report.
+ * PDF Generator Service
+ * Professional brand analysis report generator with PDF export capabilities
  */
-function drawHeader(doc, brandName) {
-  // NOTE: Replace './assets/logo.png' with the actual path to your logo file.
-  // If you don't have a logo, you can comment out the next line.
-  // doc.image('./assets/logo.png', 50, 45, { width: 150 });
 
-  doc.font('Helvetica-Bold').fontSize(20).text('Brand Analysis Report', { align: 'right' });
-  doc.fontSize(14).text(brandName, { align: 'right' });
-  doc.moveDown(0.5);
-  doc.lineCap('butt').moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-}
-
-/**
- * Draws the footer on each page.
- * @param {PDFDocument} doc - The PDFKit document instance.
- */
-function drawFooter(doc) {
-  const pageNumber = doc.page.number;
-  doc.lineCap('butt').moveTo(50, 780).lineTo(550, 780).stroke();
-  doc.fontSize(8).text(`© ${new Date().getFullYear()} CenterPage. All rights reserved.`, 50, 790);
-  doc.fontSize(8).text(`Page ${pageNumber}`, 500, 790, { align: 'right' });
-}
-
-/**
- * Draws a styled table for key metrics.
- * @param {PDFDocument} doc - The PDFKit document instance.
- * @param {object[]} tableData - Array of row data.
- * @param {number} startX - The starting X position of the table.
- * @param {number} startY - The starting Y position of the table.
- */
-function drawStyledTable(doc, tableData, startX, startY) {
-  const rowHeight = 25;
-  const colWidths = [250, 100, 150];
-  let currentY = startY;
-
-  // Draw header
-  doc.font('Helvetica-Bold').fontSize(10);
-  tableData[0].forEach((header, i) => {
-    doc.text(header, startX + colWidths.slice(0, i).reduce((a, b) => a + b, 0) + 10, currentY + 7);
-  });
-
-  doc.rect(startX, currentY, colWidths.reduce((a, b) => a + b, 0), rowHeight).stroke();
-  currentY += rowHeight;
-
-  // Draw rows
-  doc.font('Helvetica').fontSize(10);
-  tableData.slice(1).forEach(row => {
-    row.forEach((cell, i) => {
-      doc.text(cell, startX + colWidths.slice(0, i).reduce((a, b) => a + b, 0) + 10, currentY + 7);
+export async function generatePdfFromHtml(html) {
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
     });
-    doc.rect(startX, currentY, colWidths.reduce((a, b) => a + b, 0), rowHeight).stroke();
-    currentY += rowHeight;
-  });
 
-  return currentY; // Return the Y position after the table
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      margin: { top: '0.5in', right: '0.5in', bottom: '0.5in', left: '0.5in' },
+      printBackground: true,
+    });
+
+    return pdfBuffer;
+  } finally {
+    if (browser) await browser.close();
+  }
 }
 
-/**
- * Draws a score bar chart.
- * @param {PDFDocument} doc - The PDFKit document instance.
- * @param {string} label - The label for the bar.
- * @param {number} score - The score (0-100).
- * @param {number} x - The starting X position.
- * @param {number} y - The starting Y position.
- */
-function drawScoreBar(doc, label, score, x, y) {
-  const barMaxWidth = 200;
-  const barHeight = 15;
-  const barWidth = (score / 100) * barMaxWidth;
+export function generateProfessionalPdfHtml(analysisData, brandName, category) {
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+    year: 'numeric', month: 'long', day: 'numeric' 
+    });
   
-  // Determine color
-  let color = '#dc3545'; // Red
-  if (score >= 50) color = '#ffc107'; // Orange
-  if (score >= 75) color = '#28a745'; // Green
-
-  doc.font('Helvetica').fontSize(10).fillColor('black').text(label, x, y + 3);
-  doc.rect(x + 150, y, barWidth, barHeight).fill(color);
-  doc.rect(x + 150, y, barMaxWidth, barHeight).stroke();
-  doc.font('Helvetica-Bold').fontSize(10).text(`${score}`, x + 150 + barMaxWidth + 10, y + 3);
-}
-
-// --- Main PDF Generation Logic ---
-
-/**
- * Generates a professional PDF report from analysis data using PDFKit.
- * @param {object} analysisData - The core analysis data from Firestore.
- * @param {string} brandName - The name of the brand.
- * @param {string} category - The category of the analysis.
- * @returns {Promise<Buffer>} - A promise that resolves with the PDF buffer.
- */
-export async function generatePdfWithKit(analysisData, brandName, category) {
-  return new Promise((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({ size: 'A4', margins: { top: 50, bottom: 50, left: 50, right: 50 } });
-
-      // Automatically add a header to every new page
-      doc.on('pageAdded', () => {
-        drawHeader(doc, brandName);
-      });
-      const buffers = [];
-      doc.on('data', buffers.push.bind(buffers));
-      doc.on('end', () => resolve(Buffer.concat(buffers)));
-
-      console.log('🔍 [PDF] Generating PDF with data keys:', Object.keys(analysisData));
-      console.log('🔍 [PDF] Has detailedAgentReports:', !!analysisData.detailedAgentReports);
-      console.log('🔍 [PDF] Has analysis:', !!analysisData.analysis);
-      console.log('🔍 [PDF] Has competitorsAnalyzed:', !!analysisData.competitorsAnalyzed);
-
-      // Resolve deep scan data regardless of nesting structure
-      const deepScan = analysisData.deepScanData || analysisData.detailedAnalysis?.deepScanData || {};
-      const analysis = analysisData.analysis || deepScan.analysis || '';
-      const detailedAgentReports = analysisData.detailedAgentReports || deepScan.detailedAgentReports || [];
-      const competitorsAnalyzed = analysisData.competitorsAnalyzed || deepScan.competitorsAnalyzed || [];
-      const scores = analysisData.scores || analysisData.overallScore ? { overallViability: analysisData.overallScore } : (analysisData.scores || {});
-
-      console.log('🔍 [PDF] Resolved deepScan analysis length:', analysis?.length || 0);
-      console.log('🔍 [PDF] Resolved detailedAgentReports:', detailedAgentReports.length);
-      console.log('🔍 [PDF] Resolved competitorsAnalyzed:', competitorsAnalyzed.length);
-
-      // --- Page 1: Title and Executive Summary ---
-      drawHeader(doc, brandName);
-      doc.moveDown(3);
-      
-      // Executive Summary
-      doc.font('Helvetica-Bold').fontSize(14).text('Executive Summary');
-      doc.moveDown(1);
-      doc.font('Helvetica').fontSize(10).text(
-        `This comprehensive brand analysis evaluates "${brandName}" for market viability in the ${category} industry. Our AI-powered deep scan analyzed ${competitorsAnalyzed.length} competitors using advanced web scraping and multi-agent analysis to provide data-driven insights for strategic decision making.`,
-        { width: 500, align: 'justify' }
-      );
-      
-      doc.moveDown(2);
-
-      // Competitors Analyzed Summary
-      if (competitorsAnalyzed && competitorsAnalyzed.length > 0) {
-        doc.font('Helvetica-Bold').fontSize(12).text('Competitors Analyzed');
-        doc.moveDown(0.5);
-        
-        competitorsAnalyzed.forEach((competitor, index) => {
-          doc.font('Helvetica').fontSize(9)
-            .text(`${index + 1}. ${competitor.url || 'Unknown URL'}`, { indent: 20 })
-            .text(`   ${competitor.title || 'No title available'}`, { indent: 20, color: '#666666' });
-        });
-        
-        doc.moveDown(2);
-      }
-
-      // Check if we need a new page
-      if (doc.y > 650) {
-        drawFooter(doc);
-        doc.addPage();
-        doc.moveDown(2);
-      }
-
-      // --- AI Strategic Analysis ---
-      if (analysis) {
-        doc.font('Helvetica-Bold').fontSize(14).text('AI Strategic Analysis');
-        doc.moveDown(1);
-        
-        // Split analysis into paragraphs and render
-        const paragraphs = analysis.split('\n').filter(p => p.trim());
-        paragraphs.forEach(paragraph => {
-          if (doc.y > 700) {
-            drawFooter(doc);
-            doc.addPage();
-            drawHeader(doc, brandName);
-            doc.moveDown(2);
-          }
-          doc.font('Helvetica').fontSize(10).text(paragraph.trim(), { 
-            width: 500, 
-            align: 'justify',
-            lineGap: 2
-          });
-          doc.moveDown(0.8);
-        });
-      }
-      
-      drawFooter(doc);
-
-      // --- Page 2+: Detailed Agent Reports ---
-      if (detailedAgentReports && detailedAgentReports.length > 0) {
-        doc.addPage();
-        doc.moveDown(2);
-        
-        doc.font('Helvetica-Bold').fontSize(16).text('Detailed Competitor Analysis', { align: 'center' });
-        doc.font('Helvetica').fontSize(10).text('AI-Powered Multi-Agent Intelligence Reports', { align: 'center', color: '#666666' });
-        doc.moveDown(2);
-        
-        detailedAgentReports.forEach((competitor, index) => {
-          // Check if we need a new page for each competitor
-          if (index > 0 || doc.y > 600) {
-            drawFooter(doc);
-            doc.addPage();
-            drawHeader(doc, brandName);
-            doc.moveDown(2);
-          }
-          
-          // Competitor Header
-          doc.font('Helvetica-Bold').fontSize(14).text(`Competitor ${index + 1}: ${competitor.url || 'Unknown'}`);
-          doc.moveDown(0.5);
-          
-          // Raw Data Summary
-          if (competitor.raw_data_summary) {
-            doc.font('Helvetica-Bold').fontSize(11).text('Website Metrics:');
-            doc.font('Helvetica').fontSize(9)
-              .text(`• Word Count: ${competitor.raw_data_summary.wordCount || 'N/A'}`, { indent: 20 })
-              .text(`• Technology Stack: ${competitor.raw_data_summary.techStack?.join(', ') || 'Not detected'}`, { indent: 20 });
-            
-            if (competitor.raw_data_summary.performance) {
-              doc.text(`• Performance: ${JSON.stringify(competitor.raw_data_summary.performance)}`, { indent: 20 });
-            }
-            doc.moveDown(1);
-          }
-          
-          // Specialist Reports
-          if (competitor.specialist_reports) {
-            const reports = competitor.specialist_reports;
-            
-            // Technical Analysis
-            if (reports.technical) {
-              doc.font('Helvetica-Bold').fontSize(11).text('🔧 Technical Analysis:');
-              if (reports.technical.strengths && reports.technical.strengths.length > 0) {
-                doc.font('Helvetica-Bold').fontSize(9).fillColor('#28a745').text('Strengths:', { indent: 20 });
-                reports.technical.strengths.forEach(strength => {
-                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${strength}`, { indent: 40, width: 460 });
-                });
-              }
-              if (reports.technical.weaknesses && reports.technical.weaknesses.length > 0) {
-                doc.font('Helvetica-Bold').fontSize(9).fillColor('#dc3545').text('Weaknesses:', { indent: 20 });
-                reports.technical.weaknesses.forEach(weakness => {
-                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${weakness}`, { indent: 40, width: 460 });
-                });
-              }
-              doc.moveDown(1);
-            }
-            
-            // Content & SEO Analysis
-            if (reports.content) {
-              doc.font('Helvetica-Bold').fontSize(11).text('📝 Content & SEO Analysis:');
-              if (reports.content.strengths && reports.content.strengths.length > 0) {
-                doc.font('Helvetica-Bold').fontSize(9).fillColor('#28a745').text('Strengths:', { indent: 20 });
-                reports.content.strengths.forEach(strength => {
-                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${strength}`, { indent: 40, width: 460 });
-                });
-              }
-              if (reports.content.weaknesses && reports.content.weaknesses.length > 0) {
-                doc.font('Helvetica-Bold').fontSize(9).fillColor('#dc3545').text('Weaknesses:', { indent: 20 });
-                reports.content.weaknesses.forEach(weakness => {
-                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${weakness}`, { indent: 40, width: 460 });
-                });
-              }
-              doc.moveDown(1);
-            }
-            
-            // Visual & UX Analysis
-            if (reports.visual_ux) {
-              doc.font('Helvetica-Bold').fontSize(11).text('🎨 Visual & UX Analysis:');
-              if (reports.visual_ux.strengths && reports.visual_ux.strengths.length > 0) {
-                doc.font('Helvetica-Bold').fontSize(9).fillColor('#28a745').text('Strengths:', { indent: 20 });
-                reports.visual_ux.strengths.forEach(strength => {
-                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${strength}`, { indent: 40, width: 460 });
-                });
-              }
-              if (reports.visual_ux.weaknesses && reports.visual_ux.weaknesses.length > 0) {
-                doc.font('Helvetica-Bold').fontSize(9).fillColor('#dc3545').text('Weaknesses:', { indent: 20 });
-                reports.visual_ux.weaknesses.forEach(weakness => {
-                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${weakness}`, { indent: 40, width: 460 });
-                });
-              }
-              doc.moveDown(2);
-            }
-          }
-          
-          // Add separator line between competitors
-          if (index < detailedAgentReports.length - 1) {
-            doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-            doc.moveDown(1);
-          }
-        });
-        
-        drawFooter(doc);
-      }
-      
-      // Final page with timestamp and metadata
-      doc.addPage();
-      doc.moveDown(3);
-      
-      doc.font('Helvetica-Bold').fontSize(14).text('Report Metadata', { align: 'center' });
-      doc.moveDown(2);
-      
-      const metadata = [
-        ['Report Generated:', new Date().toLocaleString()],
-        ['Brand Name:', brandName || 'Unknown'],
-        ['Category:', category || 'General'],
-        ['Competitors Analyzed:', competitorsAnalyzed.length],
-        ['Analysis Timestamp:', analysisData.timestamp || deepScan.timestamp || 'Unknown'],
-        ['Analysis Method:', 'AI Multi-Agent Deep Scan']
-      ];
-      
-      metadata.forEach(([label, value]) => {
-        doc.font('Helvetica-Bold').fontSize(10).text(`${label}`, 50, doc.y, { continued: true });
-        doc.font('Helvetica').text(` ${value}`);
-        doc.moveDown(0.5);
-      });
-      
-      drawFooter(doc);
-      // Finalize the PDF and send the buffer
-      doc.end();
-
-    } catch (error) {
-      console.error('Failed inside generatePdfWithKit:', error);
-      reject(error);
+  // Helper Functions
+    const getScoreColor = (score) => {
+    if (score >= 80) return '#059669';
+    if (score >= 60) return '#d97706';
+    return '#dc2626';
+    };
+  
+    const getScoreLabel = (score) => {
+      if (score >= 80) return 'Excellent';
+      if (score >= 60) return 'Good';
+      return 'Needs Attention';
+    };
+  
+  // Component Generators
+  const generateHeader = () => `
+      <div class="header">
+              <div class="logo">CenterPage</div>
+          <h1>Brand Analysis Report</h1>
+              <div class="brand-info">${brandName || 'Unknown Brand'}</div>
+              <div class="brand-info">${category || 'General'} Industry</div>
+              <div class="date-info">Generated on ${currentDate}</div>
+          </div>
+  `;
+  
+  const generateExecutiveSummary = () => `
+          <div class="executive-summary">
+              <h2>Executive Summary</h2>
+              <div class="summary-content">
+        This comprehensive brand analysis evaluates "<strong>${brandName || 'your brand'}</strong>" 
+        for market viability in the ${category || 'business'} industry. Our analysis examines domain 
+        availability, competitive landscape, and market positioning to provide data-driven insights 
+        for strategic decision making.
+      </div>
+    </div>
+  `;
+  
+  const generateScoreSection = () => `
+      <div class="score-section">
+      <h2>Overall Brand Viability Score</h2>
+              <div class="score-container">
+        <div class="score-circle" style="border-top-color: ${getScoreColor(analysisData.overallScore || 0)}">
+          <div class="score-number" style="color: ${getScoreColor(analysisData.overallScore || 0)}">
+            ${Math.round(analysisData.overallScore || 0)}
+          </div>
+                  </div>
+              </div>
+      <div class="score-description">
+        ${getScoreLabel(analysisData.overallScore || 0)} - ${Math.round(analysisData.overallScore || 0)}/100
+      </div>
+    </div>
+  `;
+  
+  const generateMetrics = () => `
+          <div class="metrics-section">
+              <div class="metrics-title">Key Performance Indicators</div>
+              <div class="metrics-grid">
+                  <div class="metric-card">
+          <div class="metric-value" style="color: ${getScoreColor(analysisData.scores?.domainStrength || 0)}">
+            ${Math.round(analysisData.scores?.domainStrength || 0)}
+          </div>
+              <div class="metric-title">Domain Strength</div>
+                  </div>
+                  <div class="metric-card">
+          <div class="metric-value" style="color: ${getScoreColor(analysisData.scores?.competitionIntensity || 0)}">
+            ${Math.round(analysisData.scores?.competitionIntensity || 0)}
+          </div>
+                      <div class="metric-title">Competition (Higher = Easier)</div>
+                  </div>
+                  <div class="metric-card">
+          <div class="metric-value" style="color: ${getScoreColor(analysisData.scores?.seoDifficulty || 0)}">
+            ${Math.round(analysisData.scores?.seoDifficulty || 0)}
+          </div>
+                      <div class="metric-title">SEO Difficulty (Higher = Easier)</div>
+                  </div>
+              </div>
+          </div>
+  `;
+  
+  const generateDataTable = () => `
+          <div class="data-section">
+              <div class="data-title">Analysis Breakdown</div>
+              <table class="data-table">
+                  <thead>
+                      <tr>
+                          <th>Metric</th>
+                          <th>Score</th>
+                          <th>Status</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      <tr>
+                          <td>Domain Availability</td>
+                          <td>${Math.round(analysisData.scores?.domainStrength || 0)}/100</td>
+                          <td>${getScoreLabel(analysisData.scores?.domainStrength || 0)}</td>
+                      </tr>
+                      <tr>
+                          <td>Competition Level</td>
+                          <td>${Math.round(analysisData.scores?.competitionIntensity || 0)}/100</td>
+                          <td>${getScoreLabel(analysisData.scores?.competitionIntensity || 0)}</td>
+                      </tr>
+                      <tr>
+                          <td>SEO Difficulty</td>
+                          <td>${Math.round(analysisData.scores?.seoDifficulty || 0)}/100</td>
+                          <td>${getScoreLabel(analysisData.scores?.seoDifficulty || 0)}</td>
+                      </tr>
+                      <tr>
+                          <td>Overall Viability</td>
+                          <td>${Math.round(analysisData.overallScore || 0)}/100</td>
+                          <td>${getScoreLabel(analysisData.overallScore || 0)}</td>
+                      </tr>
+                  </tbody>
+              </table>
+          </div>
+  `;
+  
+  const generateDomainSection = () => {
+    const domains = analysisData.detailedAnalysis?.domainAvailability;
+    if (!domains || !Array.isArray(domains) || domains.length === 0) {
+      return `
+          <div class="domains-section">
+              <div class="domains-title">Domain Availability Analysis</div>
+          <div class="domain-item">
+            <span class="domain-name">No domain data available</span>
+          </div>
+        </div>
+      `;
     }
-  });
-}
+
+    return `
+      <div class="domains-section">
+        <div class="domains-title">Domain Availability Analysis</div>
+        ${domains.map(domain => `
+                      <div class="domain-item">
+                          <span class="domain-name">${domain.domain || 'Unknown domain'}</span>
+            <span class="domain-status ${domain.isAvailable ? 'available' : 'taken'}">
+              ${domain.isAvailable ? 'Available' : 'Taken'}
+            </span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  };
+  
+  const generateCompetitorSection = () => {
+              const competitors = analysisData.competitors;
+    if (!competitors || !Array.isArray(competitors) || competitors.length === 0) {
+      return '';
+    }
+
+                  return `
+                  <div class="competitors-section">
+                      <div class="competitors-title">Competitive Landscape</div>
+                      ${competitors.slice(0, 10).map(competitor => `
+                          <div class="competitor-row">
+                              <span class="competitor-name">${competitor.name || competitor.url || 'Unknown'}</span>
+                              <span class="competitor-score">${competitor.relevanceScore || 'N/A'}</span>
+                          </div>
+                      `).join('')}
+                  </div>
+                  `;
+  };
+
+  const generateDeepScanSection = () => {
+    const deepScanData = analysisData.deepScanData || 
+                        analysisData.detailedAnalysis?.deepScanData || 
+                        analysisData.data || 
+                        analysisData;
+
+    if (!deepScanData || (!deepScanData.competitorsAnalyzed && !deepScanData.analysis && !deepScanData.detailedAgentReports)) {
+      return '';
+    }
+
+    const generateCompetitorAnalysis = () => {
+      if (!deepScanData.detailedAgentReports || deepScanData.detailedAgentReports.length === 0) {
+              return '';
+      }
+
+      return `
+        <div class="deep-competitors-section">
+          <h3 class="section-title">Detailed Competitor Analysis</h3>
+          ${deepScanData.detailedAgentReports.map(competitor => `
+            <div class="deep-competitor-card">
+              <div class="competitor-header">
+                <h4>${competitor.url || 'Unknown Competitor'}</h4>
+                <div class="competitor-metrics">
+                  ${competitor.raw_data_summary ? `<span class="metric-badge">Words: ${competitor.raw_data_summary.wordCount || 'N/A'}</span>` : ''}
+                  ${competitor.specialist_reports ? `<span class="metric-badge">AI Analyzed</span>` : ''}
+                </div>
+              </div>
+              ${generateSpecialistReports(competitor.specialist_reports)}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    };
+
+    const generateSpecialistReports = (reports) => {
+      if (!reports) return '';
+
+      const generateReportSection = (title, report) => {
+        if (!report) return '';
+        
+        return `
+          <div class="report-section">
+            <strong>${title}:</strong>
+            ${report.strengths && report.strengths.length > 0 ? `
+              <div class="strengths">
+                <span class="label success">✓ Strengths:</span>
+                <ul>${report.strengths.map(item => `<li>${item}</li>`).join('')}</ul>
+              </div>
+            ` : ''}
+            ${report.weaknesses && report.weaknesses.length > 0 ? `
+              <div class="weaknesses">
+                <span class="label warning">⚠ Weaknesses:</span>
+                <ul>${report.weaknesses.map(item => `<li>${item}</li>`).join('')}</ul>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      };
+
+      return `
+        <div class="competitor-analysis">
+          <h5>AI Specialist Analysis</h5>
+          ${generateReportSection('Technical Analysis', reports.technical)}
+          ${generateReportSection('Content & SEO Analysis', reports.content)}
+          ${generateReportSection('Visual & UX Analysis', reports.visual_ux)}
+        </div>
+      `;
+    };
+
+                  return `
+                  <div class="page-break"></div>
+                  <div class="deep-scan-section">
+                      <div class="premium-header">
+                          <div class="premium-badge">PREMIUM ANALYSIS</div>
+                          <h2 class="deep-scan-title">Deep Scan Intelligence Report</h2>
+                          <p class="deep-scan-subtitle">Advanced AI-powered competitive analysis with live-scraped data</p>
+      </div>
+        ${generateCompetitorAnalysis()}
+        ${deepScanData.analysis ? `
+                      <div class="comparative-analysis-section">
+                          <h3 class="section-title">AI Strategic Analysis</h3>
+                          <div class="analysis-content">
+              ${deepScanData.analysis.split('\n').map(p => p.trim() ? `<p>${p.trim()}</p>` : '').join('')}
+                          </div>
+                      </div>
+                      ` : ''}
+        ${deepScanData.competitorsAnalyzed && deepScanData.competitorsAnalyzed.length > 0 ? `
+                      <div class="market-insights-section">
+            <h3 class="section-title">Competitors Analyzed</h3>
+                          <div class="insights-grid">
+              ${deepScanData.competitorsAnalyzed.map(competitor => `
+                                  <div class="insight-item">
+                  <h6>${competitor.url || 'Unknown URL'}</h6>
+                  <p>${competitor.title || 'No title available'}</p>
+              </div>
+          `).join('')}
+      </div>
+                      </div>
+                      ` : ''}
+                  </div>
+                  `;
+  };
+  
+  const generateRecommendations = () => `
+          <div class="recommendation-section">
+              <div class="recommendation-title">Strategic Recommendations</div>
+              <div class="recommendation-content">
+        ${analysisData.recommendation || analysisData.summary || 
+          `Based on our analysis of "${brandName || 'this brand'}" in the ${category || 'this'} industry, 
+          we recommend careful consideration of the competitive landscape and domain availability. 
+          Focus on building a strong brand identity that differentiates from existing market players.`}
+      </div>
+    </div>
+  `;
+  
+  const generateFooter = () => `
+      <div class="footer">
+              <div class="footer-logo">CenterPage</div>
+              <div class="footer-text">
+                  This report was generated by CenterPage's AI-powered brand analysis engine.<br>
+                  © ${new Date().getFullYear()} CenterPage. All rights reserved. | Professional Brand Intelligence
+              </div>
+          </div>
+  `;
+
+  // CSS Styles
+  const styles = `
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+      
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      
+      body { 
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+        line-height: 1.6; color: #374151; background: #ffffff;
+      }
+      
+      .page { max-width: 800px; margin: 0 auto; background: white; }
+      
+      .header {
+        background: #f9fafb; border-bottom: 3px solid #1f2937; color: #1f2937;
+        padding: 40px 30px; text-align: center;
+      }
+      
+      .logo { font-size: 28px; font-weight: 700; margin-bottom: 16px; color: #1f2937; }
+      
+      .header h1 { font-size: 24px; font-weight: 600; margin-bottom: 12px; color: #374151; }
+      
+      .brand-info { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1f2937; }
+      
+      .date-info { font-size: 14px; color: #6b7280; }
+      
+      .executive-summary {
+        padding: 40px 30px; background: #ffffff; border-left: 4px solid #1f2937; margin: 20px 0;
+      }
+      
+      .executive-summary h2 { font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #1f2937; }
+      
+      .summary-content { font-size: 14px; line-height: 1.7; color: #4b5563; }
+      
+      .score-section {
+        padding: 40px 30px; text-align: center; background: #f9fafb; border: 1px solid #e5e7eb;
+      }
+      
+      .score-container { display: inline-block; position: relative; margin-bottom: 20px; }
+      
+      .score-circle {
+        width: 120px; height: 120px; border-radius: 50%; border: 8px solid #e5e7eb;
+        display: flex; align-items: center; justify-content: center; margin: 0 auto;
+      }
+      
+      .score-number { font-size: 28px; font-weight: 700; }
+      
+      .score-description { font-size: 16px; font-weight: 600; color: #374151; margin-top: 16px; }
+      
+      .metrics-section { padding: 40px 30px; background: #ffffff; }
+      
+      .metrics-title { font-size: 18px; font-weight: 600; margin-bottom: 24px; text-align: center; color: #1f2937; }
+      
+      .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+      
+      .metric-card { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; text-align: center; }
+      
+      .metric-value { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+      
+      .metric-title { font-size: 12px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+      
+      .data-section { padding: 40px 30px; background: #ffffff; }
+      
+      .data-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #1f2937; }
+      
+      .data-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+      
+      .data-table th {
+        background: #f9fafb; padding: 12px; text-align: left; font-weight: 600; font-size: 12px;
+        color: #374151; border-bottom: 2px solid #e5e7eb; text-transform: uppercase; letter-spacing: 0.5px;
+      }
+      
+      .data-table td { padding: 12px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #4b5563; }
+      
+      .domains-section { padding: 40px 30px; background: #f9fafb; }
+      
+      .domains-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #1f2937; }
+      
+      .domain-item {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 12px 16px; background: #ffffff; border: 1px solid #e5e7eb; margin-bottom: 8px;
+      }
+      
+      .domain-name { font-weight: 500; color: #1f2937; }
+      
+      .domain-status {
+        font-weight: 600; font-size: 12px; padding: 4px 8px; border: 1px solid; text-transform: uppercase;
+      }
+      
+      .available { color: #059669; border-color: #059669; background: #ecfdf5; }
+      
+      .taken { color: #dc2626; border-color: #dc2626; background: #fef2f2; }
+      
+      .competitors-section { padding: 40px 30px; background: #ffffff; }
+      
+      .competitors-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #1f2937; }
+      
+      .competitor-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 12px 16px; background: #f9fafb; border: 1px solid #e5e7eb; margin-bottom: 8px;
+      }
+      
+      .competitor-name { font-weight: 500; color: #1f2937; flex: 1; }
+      
+      .competitor-score { font-weight: 600; font-size: 14px; color: #374151; width: 60px; text-align: center; }
+      
+      .deep-scan-section { padding: 40px 30px; background: #ffffff; }
+      
+      .premium-header {
+        text-align: center; margin-bottom: 40px; padding: 30px; background: #f8fafc; border: 2px solid #e5e7eb;
+      }
+      
+      .premium-badge {
+        display: inline-block; background: #1f2937; color: white; padding: 6px 16px;
+        font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-bottom: 16px;
+      }
+      
+      .deep-scan-title { font-size: 24px; font-weight: 700; color: #1f2937; margin-bottom: 8px; }
+      
+      .deep-scan-subtitle { font-size: 14px; color: #6b7280; margin: 0; }
+      
+      .section-title {
+        font-size: 18px; font-weight: 600; color: #1f2937; margin-bottom: 20px;
+        padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;
+      }
+      
+      .deep-competitors-section { margin-bottom: 40px; }
+      
+      .deep-competitor-card { background: #f9fafb; border: 1px solid #e5e7eb; padding: 24px; margin-bottom: 20px; }
+      
+      .competitor-header {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+      }
+      
+      .competitor-header h4 { font-size: 16px; font-weight: 600; color: #1f2937; margin: 0; }
+      
+      .competitor-metrics { display: flex; gap: 8px; }
+      
+      .metric-badge {
+        background: #e5e7eb; color: #374151; padding: 4px 8px; border-radius: 4px;
+        font-size: 11px; font-weight: 600;
+      }
+      
+      .competitor-analysis { margin-bottom: 16px; }
+      
+      .competitor-analysis h5 { font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 8px; }
+      
+      .report-section { margin-bottom: 16px; }
+      
+      .label { font-size: 11px; font-weight: 600; }
+      
+      .success { color: #059669; }
+      
+      .warning { color: #dc2626; }
+      
+      .strengths, .weaknesses { margin-top: 8px; }
+      
+      .strengths ul, .weaknesses ul { margin: 4px 0; padding-left: 16px; }
+      
+      .strengths li, .weaknesses li { font-size: 11px; color: #4b5563; }
+      
+      .comparative-analysis-section { margin-bottom: 40px; }
+      
+      .analysis-content p { font-size: 14px; line-height: 1.7; color: #4b5563; margin-bottom: 12px; }
+      
+      .market-insights-section { margin-bottom: 40px; }
+      
+      .insights-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+      
+      .insight-item { background: #f9fafb; padding: 16px; border: 1px solid #e5e7eb; }
+      
+      .insight-item h6 { font-size: 13px; font-weight: 600; color: #1f2937; margin-bottom: 8px; }
+      
+      .insight-item p { font-size: 12px; color: #4b5563; margin: 0; line-height: 1.5; }
+      
+      .recommendation-section {
+        padding: 40px 30px; background: #ffffff; border-top: 2px solid #e5e7eb;
+      }
+      
+      .recommendation-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #1f2937; }
+      
+      .recommendation-content { font-size: 14px; line-height: 1.7; color: #4b5563; }
+      
+      .footer {
+        padding: 30px; text-align: center; background: #f9fafb; border-top: 1px solid #e5e7eb;
+      }
+      
+      .footer-logo { font-size: 18px; font-weight: 600; color: #1f2937; margin-bottom: 8px; }
+      
+      .footer-text { font-size: 11px; color: #6b7280; line-height: 1.5; }
+      
+      .page-break { page-break-before: always; }
+    </style>
+  `;
+
+  // Generate Complete HTML
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Brand Analysis Report - ${brandName}</title>
+      ${styles}
+    </head>
+    <body>
+      <div class="page">
+        ${generateHeader()}
+        ${generateExecutiveSummary()}
+        ${generateScoreSection()}
+        ${generateMetrics()}
+        ${generateDataTable()}
+        ${generateDomainSection()}
+        ${generateCompetitorSection()}
+        ${generateDeepScanSection()}
+        ${generateRecommendations()}
+        ${generateFooter()}
+      </div>
+  </body>
+  </html>
+    `;
+  } 
