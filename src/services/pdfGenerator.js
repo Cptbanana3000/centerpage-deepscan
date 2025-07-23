@@ -108,59 +108,196 @@ export async function generatePdfWithKit(analysisData, brandName, category) {
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
 
+      console.log('🔍 [PDF] Generating PDF with data keys:', Object.keys(analysisData));
+      console.log('🔍 [PDF] Has detailedAgentReports:', !!analysisData.detailedAgentReports);
+      console.log('🔍 [PDF] Has analysis:', !!analysisData.analysis);
+      console.log('🔍 [PDF] Has competitorsAnalyzed:', !!analysisData.competitorsAnalyzed);
+
       // --- Page 1: Title and Executive Summary ---
       drawHeader(doc, brandName);
-      doc.moveDown(4);
-      doc.font('Helvetica-Bold').fontSize(12).text('Executive Summary');
+      doc.moveDown(3);
+      
+      // Executive Summary
+      doc.font('Helvetica-Bold').fontSize(14).text('Executive Summary');
+      doc.moveDown(1);
       doc.font('Helvetica').fontSize(10).text(
-        `This comprehensive brand analysis evaluates "${brandName}" for market viability in the ${category} industry. Our analysis examines domain availability, competitive landscape, and market positioning to provide data-driven insights for strategic decision making.`,
-        { width: 500 }
+        `This comprehensive brand analysis evaluates "${brandName}" for market viability in the ${category} industry. Our AI-powered deep scan analyzed ${analysisData.competitorsAnalyzed?.length || 0} competitors using advanced web scraping and multi-agent analysis to provide data-driven insights for strategic decision making.`,
+        { width: 500, align: 'justify' }
       );
       
       doc.moveDown(2);
 
-      // Overall Score Box
-      const score = Math.round(analysisData.analysis?.scores?.overallViability || 12);
-      doc.fillColor('#EFEFEF').rect(50, doc.y, 500, 50).fill();
-      doc.fillColor('black').font('Helvetica-Bold').fontSize(14).text('Overall Brand Viability Score', 65, doc.y + 18);
-      doc.font('Helvetica-Bold').fontSize(14).text(`${score}/100`, 450, doc.y - 14, { align: 'right' });
+      // Competitors Analyzed Summary
+      if (analysisData.competitorsAnalyzed && analysisData.competitorsAnalyzed.length > 0) {
+        doc.font('Helvetica-Bold').fontSize(12).text('Competitors Analyzed');
+        doc.moveDown(0.5);
+        
+        analysisData.competitorsAnalyzed.forEach((competitor, index) => {
+          doc.font('Helvetica').fontSize(9)
+            .text(`${index + 1}. ${competitor.url || 'Unknown URL'}`, { indent: 20 })
+            .text(`   ${competitor.title || 'No title available'}`, { indent: 20, color: '#666666' });
+        });
+        
+        doc.moveDown(2);
+      }
 
+      // Check if we need a new page
+      if (doc.y > 650) {
+        doc.addPage();
+        drawHeader(doc, brandName);
+        doc.moveDown(2);
+      }
 
-      doc.moveDown(4);
-
-      // --- Analysis Breakdown Table ---
-      doc.font('Helvetica-Bold').fontSize(12).text('Analysis Breakdown');
-      const table = [
-        ['METRIC', 'SCORE', 'STATUS'],
-        ['Domain Availability', `${Math.round(analysisData.analysis?.scores?.domainStrength || 0)}/100`, 'Needs Attention'],
-        ['Competition Level', `${Math.round(analysisData.analysis?.scores?.competition || 0)}/100`, 'Needs Attention'],
-        ['SEO Difficulty', `${Math.round(analysisData.analysis?.scores?.seoScore || 0)}/100`, 'Needs Attention'],
-      ];
-      drawStyledTable(doc, table, 50, doc.y + 10);
+      // --- AI Strategic Analysis ---
+      if (analysisData.analysis) {
+        doc.font('Helvetica-Bold').fontSize(14).text('AI Strategic Analysis');
+        doc.moveDown(1);
+        
+        // Split analysis into paragraphs and render
+        const paragraphs = analysisData.analysis.split('\n').filter(p => p.trim());
+        paragraphs.forEach(paragraph => {
+          if (doc.y > 700) {
+            doc.addPage();
+            drawHeader(doc, brandName);
+            doc.moveDown(2);
+          }
+          doc.font('Helvetica').fontSize(10).text(paragraph.trim(), { 
+            width: 500, 
+            align: 'justify',
+            lineGap: 2
+          });
+          doc.moveDown(0.8);
+        });
+      }
       
       drawFooter(doc);
 
-      // --- Page 2: Deep Dive Analysis ---
+      // --- Page 2+: Detailed Agent Reports ---
+      if (analysisData.detailedAgentReports && analysisData.detailedAgentReports.length > 0) {
+        doc.addPage();
+        drawHeader(doc, brandName);
+        doc.moveDown(2);
+        
+        doc.font('Helvetica-Bold').fontSize(16).text('Detailed Competitor Analysis', { align: 'center' });
+        doc.font('Helvetica').fontSize(10).text('AI-Powered Multi-Agent Intelligence Reports', { align: 'center', color: '#666666' });
+        doc.moveDown(2);
+        
+        analysisData.detailedAgentReports.forEach((competitor, index) => {
+          // Check if we need a new page for each competitor
+          if (index > 0 || doc.y > 600) {
+            doc.addPage();
+            drawHeader(doc, brandName);
+            doc.moveDown(2);
+          }
+          
+          // Competitor Header
+          doc.font('Helvetica-Bold').fontSize(14).text(`Competitor ${index + 1}: ${competitor.url || 'Unknown'}`);
+          doc.moveDown(0.5);
+          
+          // Raw Data Summary
+          if (competitor.raw_data_summary) {
+            doc.font('Helvetica-Bold').fontSize(11).text('Website Metrics:');
+            doc.font('Helvetica').fontSize(9)
+              .text(`• Word Count: ${competitor.raw_data_summary.wordCount || 'N/A'}`, { indent: 20 })
+              .text(`• Technology Stack: ${competitor.raw_data_summary.techStack?.join(', ') || 'Not detected'}`, { indent: 20 });
+            
+            if (competitor.raw_data_summary.performance) {
+              doc.text(`• Performance: ${JSON.stringify(competitor.raw_data_summary.performance)}`, { indent: 20 });
+            }
+            doc.moveDown(1);
+          }
+          
+          // Specialist Reports
+          if (competitor.specialist_reports) {
+            const reports = competitor.specialist_reports;
+            
+            // Technical Analysis
+            if (reports.technical) {
+              doc.font('Helvetica-Bold').fontSize(11).text('🔧 Technical Analysis:');
+              if (reports.technical.strengths && reports.technical.strengths.length > 0) {
+                doc.font('Helvetica-Bold').fontSize(9).fillColor('#28a745').text('Strengths:', { indent: 20 });
+                reports.technical.strengths.forEach(strength => {
+                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${strength}`, { indent: 40, width: 460 });
+                });
+              }
+              if (reports.technical.weaknesses && reports.technical.weaknesses.length > 0) {
+                doc.font('Helvetica-Bold').fontSize(9).fillColor('#dc3545').text('Weaknesses:', { indent: 20 });
+                reports.technical.weaknesses.forEach(weakness => {
+                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${weakness}`, { indent: 40, width: 460 });
+                });
+              }
+              doc.moveDown(1);
+            }
+            
+            // Content & SEO Analysis
+            if (reports.content) {
+              doc.font('Helvetica-Bold').fontSize(11).text('📝 Content & SEO Analysis:');
+              if (reports.content.strengths && reports.content.strengths.length > 0) {
+                doc.font('Helvetica-Bold').fontSize(9).fillColor('#28a745').text('Strengths:', { indent: 20 });
+                reports.content.strengths.forEach(strength => {
+                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${strength}`, { indent: 40, width: 460 });
+                });
+              }
+              if (reports.content.weaknesses && reports.content.weaknesses.length > 0) {
+                doc.font('Helvetica-Bold').fontSize(9).fillColor('#dc3545').text('Weaknesses:', { indent: 20 });
+                reports.content.weaknesses.forEach(weakness => {
+                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${weakness}`, { indent: 40, width: 460 });
+                });
+              }
+              doc.moveDown(1);
+            }
+            
+            // Visual & UX Analysis
+            if (reports.visual_ux) {
+              doc.font('Helvetica-Bold').fontSize(11).text('🎨 Visual & UX Analysis:');
+              if (reports.visual_ux.strengths && reports.visual_ux.strengths.length > 0) {
+                doc.font('Helvetica-Bold').fontSize(9).fillColor('#28a745').text('Strengths:', { indent: 20 });
+                reports.visual_ux.strengths.forEach(strength => {
+                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${strength}`, { indent: 40, width: 460 });
+                });
+              }
+              if (reports.visual_ux.weaknesses && reports.visual_ux.weaknesses.length > 0) {
+                doc.font('Helvetica-Bold').fontSize(9).fillColor('#dc3545').text('Weaknesses:', { indent: 20 });
+                reports.visual_ux.weaknesses.forEach(weakness => {
+                  doc.font('Helvetica').fontSize(8).fillColor('black').text(`• ${weakness}`, { indent: 40, width: 460 });
+                });
+              }
+              doc.moveDown(2);
+            }
+          }
+          
+          // Add separator line between competitors
+          if (index < analysisData.detailedAgentReports.length - 1) {
+            doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+            doc.moveDown(1);
+          }
+        });
+        
+        drawFooter(doc);
+      }
+      
+      // Final page with timestamp and metadata
       doc.addPage();
       drawHeader(doc, brandName);
+      doc.moveDown(3);
       
+      doc.font('Helvetica-Bold').fontSize(14).text('Report Metadata', { align: 'center' });
       doc.moveDown(2);
-      doc.font('Helvetica-Bold').fontSize(12).text('Deep Scan Intelligence Report');
       
-      if (analysisData.competitorsAnalyzed && analysisData.competitorsAnalyzed.length > 0) {
-        doc.font('Helvetica-Bold').fontSize(10).text('AI Specialist Analysis:', { underline: true });
-        const competitor = analysisData.competitorsAnalyzed[0]; // Assuming we show the first one
-        
-        doc.moveDown(1);
-        doc.font('Helvetica-Bold').fontSize(10).text('Technical Analysis:');
-        doc.font('Helvetica').fontSize(9).list(competitor.analysis.technical.strengths.map(s => `✓ ${s}`), { bulletRadius: 1.5 });
-        doc.font('Helvetica').fontSize(9).list(competitor.analysis.technical.weaknesses.map(w => `⚠ ${w}`), { bulletRadius: 1.5 });
-        
-        doc.moveDown(1);
-        doc.font('Helvetica-Bold').fontSize(10).text('Content & SEO Analysis:');
-        doc.font('Helvetica').fontSize(9).list(competitor.analysis.content.strengths.map(s => `✓ ${s}`), { bulletRadius: 1.5 });
-        doc.font('Helvetica').fontSize(9).list(competitor.analysis.content.weaknesses.map(w => `⚠ ${w}`), { bulletRadius: 1.5 });
-      }
+      const metadata = [
+        ['Report Generated:', new Date().toLocaleString()],
+        ['Brand Name:', brandName || 'Unknown'],
+        ['Category:', category || 'General'],
+        ['Competitors Analyzed:', analysisData.competitorsAnalyzed?.length || 0],
+        ['Analysis Timestamp:', analysisData.timestamp || 'Unknown'],
+        ['Analysis Method:', 'AI Multi-Agent Deep Scan']
+      ];
+      
+      metadata.forEach(([label, value]) => {
+        doc.font('Helvetica-Bold').fontSize(10).text(`${label}`, 50, doc.y, { continued: true });
+        doc.font('Helvetica').text(` ${value}`);
+        doc.moveDown(0.5);
+      });
       
       drawFooter(doc);
       
